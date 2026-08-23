@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Quick Entry Screen</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="page-title">
+                <h1>Accounting Entry Screen</h1>
+                <p>Record direct expenses, operating expenses, revenues, or quick transactions with automatic timestamping</p>
+            </div>
+            <a href="/dashboard" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <!-- Formula Callout matching PDF Page 7 -->
+        <div class="formula-card" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(6, 182, 212, 0.15)); border-color: var(--primary);">
+            <i class="fas fa-info-circle"></i> Account type and payment type are dropdown lists. Date and time are automatically recorded. <br>
+            <strong style="color: #34d399; font-size: 1.1rem; display: block; margin-top: 6px;">Formula: Gross profit – operating expense = Net profit</strong>
+        </div>
+
+        <div style="max-width: 750px; margin: 0 auto;">
+            <div class="glass-panel">
+                <div class="panel-header" style="border-bottom: 1px solid var(--glass-border); padding-bottom: 15px; margin-bottom: 25px;">
+                    <h3><i class="fas fa-pen-nib" style="color: var(--primary);"></i> New Financial Entry</h3>
+                    <span id="currentTimestamp" style="font-size: 0.85rem; color: var(--accent); font-weight: 600;"></span>
+                </div>
+
+                <form id="entryForm">
+                    <div class="form-group">
+                        <label class="form-label"><i class="fas fa-align-left"></i> Description</label>
+                        <input type="text" id="entryDescription" class="form-control" placeholder="e.g. Auto charges, Shop electricity bill, Paper rolls" required autofocus>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-rupee-sign"></i> Amount (₹)</label>
+                            <input type="number" step="0.01" id="entryAmount" class="form-control" placeholder="e.g. 150.00" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-credit-card"></i> Payment Type</label>
+                            <select id="entryPaymentType" class="form-select" required>
+                                <option value="UPI">UPI</option>
+                                <option value="Cash">Cash</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="Card">Card</option>
+                                <option value="Cheque">Cheque</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-layer-group"></i> Account Type</label>
+                            <select id="entryAccountType" class="form-select" onchange="updateCategoryOptions()" required>
+                                <option value="Operating Expense" selected>Operating Expense</option>
+                                <option value="Direct Expense">Direct Expense (COGS)</option>
+                                <option value="Revenue">Revenue (Income)</option>
+                                <option value="Asset">Asset</option>
+                                <option value="Liability">Liability</option>
+                                <option value="Equity">Equity</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-tags"></i> Category</label>
+                            <select id="entryCategory" class="form-select">
+                                <!-- Populated dynamically by JS -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label"><i class="fas fa-hashtag"></i> Reference No. / Voucher (Optional)</label>
+                        <input type="text" id="entryReference" class="form-control" placeholder="e.g. UPI-99812, VOUCHER-04">
+                    </div>
+
+                    <div style="display: flex; gap: 15px; margin-top: 30px;">
+                        <button type="submit" class="btn btn-primary" style="flex: 1; padding: 14px; font-size: 1rem;">
+                            <i class="fas fa-save"></i> Save Accounting Entry
+                        </button>
+                        <button type="reset" class="btn btn-secondary" style="padding: 14px 25px;">
+                            Clear
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const categoriesData = {{ categories|tojson }};
+
+        function updateCategoryOptions() {
+            const accType = document.getElementById('entryAccountType').value;
+            const catSelect = document.getElementById('entryCategory');
+            catSelect.innerHTML = '';
+
+            const filtered = categoriesData.filter(c => c.type === accType);
+            if (filtered.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = accType;
+                opt.textContent = accType + ' (General)';
+                catSelect.appendChild(opt);
+            } else {
+                filtered.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.name;
+                    opt.textContent = c.name;
+                    catSelect.appendChild(opt);
+                });
+            }
+        }
+
+        // Live Clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('currentTimestamp').textContent = now.toLocaleString();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+        updateCategoryOptions();
+
+        document.getElementById('entryForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const payload = {
+                description: document.getElementById('entryDescription').value,
+                amount: document.getElementById('entryAmount').value,
+                payment_method: document.getElementById('entryPaymentType').value,
+                account_type: document.getElementById('entryAccountType').value,
+                category_name: document.getElementById('entryCategory').value,
+                reference_no: document.getElementById('entryReference').value
+            };
+
+            try {
+                const res = await fetch('/api/quick-entry', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('✓ Accounting Entry Saved Successfully! Txn: ' + data.txn_number);
+                    document.getElementById('entryForm').reset();
+                    updateCategoryOptions();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Failed to connect to backend.');
+            }
+        });
+    </script>
+</body>
+</html>

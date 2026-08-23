@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Expense Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="page-title">
+                <h1>Expense Management</h1>
+                <p>Track Direct Expenses (COGS: Raw Materials, Wages, Factory Rent) and Operating Expenses (Shop Rent, Salaries, Utilities)</p>
+            </div>
+            <button class="quick-action-btn" style="background: linear-gradient(135deg, var(--danger), #b91c1c);" onclick="openExpenseModal()">
+                <i class="fas fa-plus"></i> Record New Expense
+            </button>
+        </div>
+
+        <!-- Filter Bar & Classification Selector -->
+        <div class="glass-panel" style="padding: 18px; margin-bottom: 25px;">
+            <form method="GET" action="/expenses" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                <div style="flex: 1; min-width: 200px;">
+                    <input type="text" name="search" class="form-control" placeholder="Search expense description, category..." value="{{ filters.search or '' }}">
+                </div>
+                <div>
+                    <select name="account_type" class="form-select">
+                        <option value="">All Expense Types</option>
+                        <option value="Direct Expense" {% if filters.account_type == 'Direct Expense' %}selected{% endif %}>Direct Expense (COGS)</option>
+                        <option value="Operating Expense" {% if filters.account_type == 'Operating Expense' %}selected{% endif %}>Operating Expense</option>
+                    </select>
+                </div>
+                <div>
+                    <input type="date" name="start_date" class="form-control" value="{{ filters.start_date or '' }}">
+                </div>
+                <div>
+                    <input type="date" name="end_date" class="form-control" value="{{ filters.end_date or '' }}">
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filter</button>
+                <a href="/expenses" class="btn btn-secondary"><i class="fas fa-undo"></i> Reset</a>
+            </form>
+        </div>
+
+        <!-- Expenses Summary Cards -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+            <div class="glass-panel" style="margin-bottom: 0; padding: 20px; border-left: 4px solid var(--warning);">
+                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">DIRECT EXPENSES (COGS)</div>
+                <div style="font-size: 1.5rem; font-weight: 800; color: var(--warning); margin-top: 5px;">₹{{ "%.2f"|format(total_cogs) }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Subtracted from Revenue to get Gross Profit</div>
+            </div>
+            <div class="glass-panel" style="margin-bottom: 0; padding: 20px; border-left: 4px solid var(--danger);">
+                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">OPERATING EXPENSES</div>
+                <div style="font-size: 1.5rem; font-weight: 800; color: var(--danger); margin-top: 5px;">₹{{ "%.2f"|format(total_opex) }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Subtracted from Gross Profit to get Net Profit</div>
+            </div>
+            <div class="glass-panel" style="margin-bottom: 0; padding: 20px; border-left: 4px solid #a855f7;">
+                <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">TOTAL OPERATIONAL OUTFLOW</div>
+                <div style="font-size: 1.5rem; font-weight: 800; color: white; margin-top: 5px;">₹{{ "%.2f"|format(total_cogs + total_opex) }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Combined COGS + Operating Expenses</div>
+            </div>
+        </div>
+
+        <!-- Expense Ledger Table -->
+        <div class="glass-panel">
+            <div class="panel-header">
+                <h3><i class="fas fa-arrow-up-right" style="color: var(--danger);"></i> Expense Ledger</h3>
+            </div>
+
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Txn ID</th>
+                            <th>Date</th>
+                            <th>Expense Type</th>
+                            <th>Category</th>
+                            <th>Payment</th>
+                            <th>Reference</th>
+                            <th>Description</th>
+                            <th style="text-align: right;">Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in expenses_list %}
+                        <tr>
+                            <td style="font-weight: 600; color: var(--accent);">{{ t.txn_number }}</td>
+                            <td>{{ t.txn_date }}</td>
+                            <td>
+                                {% if t.account_type == 'Direct Expense' %}
+                                    <span class="badge badge-warning">Direct COGS</span>
+                                {% else %}
+                                    <span class="badge badge-danger">Operating Exp</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge badge-purple">{{ t.category_name }}</span></td>
+                            <td>{{ t.payment_method }}</td>
+                            <td>{{ t.reference_no or '-' }}</td>
+                            <td>{{ t.description }}</td>
+                            <td style="text-align: right; font-weight: 700; color: var(--danger);">
+                                -₹{{ "%.2f"|format(t.amount) }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                                No expense records found for the selected criteria.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Expense Modal -->
+    <div id="expenseModal" class="modal-overlay">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
+                <h3 style="color: white;"><i class="fas fa-minus-circle" style="color: var(--danger);"></i> Record New Expense</h3>
+                <button onclick="closeExpenseModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="expenseForm">
+                <div class="form-group">
+                    <label class="form-label">Expense Classification</label>
+                    <select id="expAccountType" class="form-select" onchange="updateExpCategories()" required>
+                        <option value="Operating Expense" selected>Operating Expense (Shop Rent, Salaries, Utilities)</option>
+                        <option value="Direct Expense">Direct Expense / COGS (Raw materials, Factory rent, Direct wages)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select id="expCategory" class="form-select" required></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount (₹)</label>
+                    <input type="number" step="0.01" id="expAmount" class="form-control" placeholder="e.g. 12500.00" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select id="expPaymentMethod" class="form-select" required>
+                        <option value="Cash">Cash</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Card">Card</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reference No. / Voucher</label>
+                    <input type="text" id="expRef" class="form-control" placeholder="e.g. VOUCHER-401">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <input type="text" id="expDesc" class="form-control" placeholder="Purpose of expense" required>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 25px;">
+                    <button type="submit" class="btn btn-danger" style="flex: 1;">Save Expense Entry</button>
+                    <button type="button" onclick="closeExpenseModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const categories = {{ categories|tojson }};
+
+        function updateExpCategories() {
+            const accType = document.getElementById('expAccountType').value;
+            const catSelect = document.getElementById('expCategory');
+            catSelect.innerHTML = '';
+            const filtered = categories.filter(c => c.type === accType);
+            filtered.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.name;
+                opt.textContent = c.name;
+                catSelect.appendChild(opt);
+            });
+        }
+        updateExpCategories();
+
+        function openExpenseModal() { document.getElementById('expenseModal').style.display = 'flex'; }
+        function closeExpenseModal() { document.getElementById('expenseModal').style.display = 'none'; }
+
+        document.getElementById('expenseForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const payload = {
+                account_type: document.getElementById('expAccountType').value,
+                category_name: document.getElementById('expCategory').value,
+                amount: document.getElementById('expAmount').value,
+                payment_method: document.getElementById('expPaymentMethod').value,
+                reference_no: document.getElementById('expRef').value,
+                description: document.getElementById('expDesc').value
+            };
+            const res = await fetch('/api/quick-entry', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert(data.error);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — System Test & Calculation Verification Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .test-card {
+            background: var(--surface);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+        .metric-badge-pass {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .metric-badge-fail {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .mapping-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .mapping-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 18px;
+        }
+        .mapping-box h4 {
+            color: white;
+            font-size: 1.05rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .mapping-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.85rem;
+        }
+        .mapping-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="page-title">
+                <h1>System Test & Calculation Verification Center</h1>
+                <p>Simulate Sales Software flow, verify double-entry accounting formulas, and manage test data cleanup</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="runSimulation()" class="btn btn-primary" id="btnRunTest">
+                    <i class="fas fa-play"></i> Run Calculation Audit
+                </button>
+                <button onclick="confirmPurge()" class="btn btn-danger">
+                    <i class="fas fa-trash-alt"></i> Purge Dummy Data
+                </button>
+                <button onclick="resetDemoData()" class="btn btn-secondary">
+                    <i class="fas fa-undo"></i> Restore Demo Dataset
+                </button>
+            </div>
+        </div>
+
+        <!-- Formula Banner from PDF -->
+        <div class="formula-card" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(16, 185, 129, 0.15));">
+            <i class="fas fa-calculator"></i>
+            <strong>Accounting Formulas Verified:</strong> TOTAL REVENUE [ - ] TOTAL COGS [ direct expenses ] = GROSS PROFIT | GROSS PROFIT [ - ] OPERATING EXPENSES = NET PROFIT
+        </div>
+
+        <!-- Architectural Mapping Card -->
+        <div class="test-card">
+            <div class="panel-header" style="margin-bottom: 15px;">
+                <h3><i class="fas fa-project-diagram" style="color: var(--accent);"></i> Data Source Mapping: Sales Software vs. Accounts Software</h3>
+            </div>
+            <div class="mapping-grid">
+                <div class="mapping-box" style="border-left: 4px solid var(--accent);">
+                    <h4><i class="fas fa-cash-register" style="color: var(--accent);"></i> 1. From Sales Software (Counter Cashier)</h4>
+                    <div class="mapping-item">
+                        <span><strong>Cash Sales:</strong> Daily retail billing</span>
+                        <span class="badge badge-success">Revenue (Income)</span>
+                    </div>
+                    <div class="mapping-item">
+                        <span><strong>UPI / QR Sales:</strong> Instant digital payments</span>
+                        <span class="badge badge-success">Revenue (Income)</span>
+                    </div>
+                    <div class="mapping-item">
+                        <span><strong>POS Card Swipe:</strong> Credit/Debit card sales</span>
+                        <span class="badge badge-success">Revenue (Income)</span>
+                    </div>
+                    <div class="mapping-item">
+                        <span><strong>Customer Credit Sales:</strong> Balance due</span>
+                        <span class="badge badge-info">Asset (Receivable)</span>
+                    </div>
+                    <div class="mapping-item">
+                        <span><strong>Counter Shop Expense:</strong> Auto charges, tea, bags</span>
+                        <span class="badge badge-danger">Operating Expense</span>
+                    </div>
+                </div>
+
+                <div class="mapping-box" style="border-left: 4px solid var(--primary);">
+                    <h4><i class="fas fa-file-invoice" style="color: var(--primary);"></i> 2. Direct in Accounts Software (Accountant)</h4>
+                    <div class="mapping-item">
+                        <span><strong>Raw Materials & Wages:</strong> Factory costs</span>
+                        <span class="badge badge-warning">Direct Expense (COGS)</span>
+                    </div>
+                    <div class="mapping-item">
+                        <span><strong>Shop Rent & Salaries:</strong> Commercial overheads</span>
+                        <span class="badge badge-danger">Operating Expense</span>
+                    </div>
+                    <div class="mapping-item">
+                        <span><strong>Supplier Credit Invoices:</strong> Vendor bills</span>
+                        <span class="badge badge-danger">Liability (Payable)</span>
+                    </div>
+                    <div class="mapping-item">
+                        <span><strong>Electricity & Admin:</strong> Office utilities</span>
+                        <span class="badge badge-danger">Operating Expense</span>
+                    </div>
+                    <div class="mapping-item">
+                        <span><strong>Owner Equity:</strong> Capital / Drawing</span>
+                        <span class="badge badge-purple">Equity Transfer</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Simulation Results Section (Dynamically updated) -->
+        <div id="testResultsPanel" style="display: none;">
+            <div class="test-card">
+                <div class="panel-header" style="border-bottom: 1px solid var(--glass-border); padding-bottom: 15px; margin-bottom: 20px;">
+                    <div>
+                        <h3 id="testResultHeader"><i class="fas fa-check-circle" style="color: var(--success);"></i> Calculation Audit Results</h3>
+                        <p id="testTimestamp" style="font-size: 0.8rem; color: var(--text-muted);"></p>
+                    </div>
+                    <div id="overallBadge"></div>
+                </div>
+
+                <!-- KPI Summary in Test Result -->
+                <div class="kpi-grid" style="margin-bottom: 25px;">
+                    <div class="kpi-card" style="padding: 16px;">
+                        <div class="kpi-title">Total Revenue</div>
+                        <div class="kpi-value" id="kpiRevenue" style="font-size: 1.3rem;">₹0.00</div>
+                    </div>
+                    <div class="kpi-card" style="padding: 16px;">
+                        <div class="kpi-title">Direct COGS</div>
+                        <div class="kpi-value" id="kpiCOGS" style="font-size: 1.3rem; color: var(--warning);">₹0.00</div>
+                    </div>
+                    <div class="kpi-card" style="padding: 16px;">
+                        <div class="kpi-title">Gross Profit</div>
+                        <div class="kpi-value" id="kpiGrossProfit" style="font-size: 1.3rem; color: #60a5fa;">₹0.00</div>
+                    </div>
+                    <div class="kpi-card" style="padding: 16px;">
+                        <div class="kpi-title">Operating Expenses</div>
+                        <div class="kpi-value" id="kpiOpEx" style="font-size: 1.3rem; color: var(--danger);">₹0.00</div>
+                    </div>
+                    <div class="kpi-card" style="padding: 16px;">
+                        <div class="kpi-title">Net Profit</div>
+                        <div class="kpi-value" id="kpiNetProfit" style="font-size: 1.3rem; color: #34d399;">₹0.00</div>
+                    </div>
+                    <div class="kpi-card" style="padding: 16px;">
+                        <div class="kpi-title">Receivables</div>
+                        <div class="kpi-value" id="kpiReceivables" style="font-size: 1.3rem; color: #38bdf8;">₹0.00</div>
+                    </div>
+                    <div class="kpi-card" style="padding: 16px;">
+                        <div class="kpi-title">Payables</div>
+                        <div class="kpi-value" id="kpiPayables" style="font-size: 1.3rem; color: #f87171;">₹0.00</div>
+                    </div>
+                </div>
+
+                <!-- Detailed Verification Table -->
+                <div class="table-responsive">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Applied Formula / Verification Logic</th>
+                                <th style="text-align: right;">Expected (₹)</th>
+                                <th style="text-align: right;">Calculated (₹)</th>
+                                <th style="text-align: center;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="checksTableBody">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-top: 25px; flex-wrap: wrap;">
+                    <a href="/dashboard" class="btn btn-secondary"><i class="fas fa-chart-line"></i> View in Dashboard</a>
+                    <a href="/reports" class="btn btn-secondary"><i class="fas fa-file-alt"></i> View P&L Statement</a>
+                    <a href="/transactions" class="btn btn-secondary"><i class="fas fa-exchange-alt"></i> View Ledger</a>
+                    <a href="/receivables" class="btn btn-secondary"><i class="fas fa-hand-holding-usd"></i> View Receivables</a>
+                    <a href="/payables" class="btn btn-secondary"><i class="fas fa-file-invoice-dollar"></i> View Payables</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Purge Modal -->
+    <div id="purgeModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="max-width: 480px; width: 90%; margin: 0; border: 1px solid var(--danger);">
+            <div class="panel-header" style="color: var(--danger);">
+                <h3><i class="fas fa-exclamation-triangle"></i> Confirm Data Cleanup</h3>
+            </div>
+            <p style="color: var(--text-muted); margin: 15px 0; line-height: 1.6;">
+                This action will completely remove all <strong>dummy transactions, receivables, payables, and payment records</strong> from the database.
+                <br><br>
+                <span style="color: #34d399;"><i class="fas fa-shield-alt"></i> User accounts and default accounting categories will remain 100% safe.</span>
+            </p>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button onclick="closePurgeModal()" class="btn btn-secondary">Cancel</button>
+                <button onclick="executePurge()" class="btn btn-danger"><i class="fas fa-trash-alt"></i> Yes, Purge All Data</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function runSimulation() {
+            const btn = document.getElementById('btnRunTest');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running Test...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/system/run-test-simulation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    displayTestResults(data);
+                } else {
+                    alert('Simulation error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Failed to connect to backend.');
+            } finally {
+                btn.innerHTML = '<i class="fas fa-play"></i> Run Calculation Audit';
+                btn.disabled = false;
+            }
+        }
+
+        function displayTestResults(data) {
+            document.getElementById('testResultsPanel').style.display = 'block';
+            document.getElementById('testTimestamp').textContent = 'Audit Timestamp: ' + data.timestamp;
+
+            const summary = data.summary;
+            document.getElementById('kpiRevenue').textContent = '₹' + summary.total_income.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            document.getElementById('kpiCOGS').textContent = '₹' + summary.total_cogs.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            document.getElementById('kpiGrossProfit').textContent = '₹' + summary.gross_profit.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            document.getElementById('kpiOpEx').textContent = '₹' + summary.total_opex.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            document.getElementById('kpiNetProfit').textContent = '₹' + summary.net_profit.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            document.getElementById('kpiReceivables').textContent = '₹' + summary.total_receivables.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            document.getElementById('kpiPayables').textContent = '₹' + summary.total_payables.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+            const badgeContainer = document.getElementById('overallBadge');
+            if (data.all_passed) {
+                badgeContainer.innerHTML = '<span class="metric-badge-pass" style="font-size: 1rem; padding: 6px 16px;"><i class="fas fa-check-double"></i> 100% ACCURATE (ALL CHECKS PASSED)</span>';
+            } else {
+                badgeContainer.innerHTML = '<span class="metric-badge-fail" style="font-size: 1rem; padding: 6px 16px;"><i class="fas fa-times-circle"></i> VERIFICATION FAILED</span>';
+            }
+
+            const tbody = document.getElementById('checksTableBody');
+            tbody.innerHTML = '';
+
+            data.checks.forEach(c => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight: 600; color: white;">${c.metric}</td>
+                    <td style="color: var(--text-muted); font-size: 0.85rem;">${c.formula}</td>
+                    <td style="text-align: right; color: var(--accent); font-weight: 600;">₹${c.expected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td style="text-align: right; font-weight: 700; color: ${c.passed ? '#34d399' : '#f87171'};">₹${c.actual.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    <td style="text-align: center;">
+                        ${c.passed ? '<span class="metric-badge-pass"><i class="fas fa-check"></i> PASS</span>' : '<span class="metric-badge-fail"><i class="fas fa-times"></i> FAIL</span>'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Smooth scroll to results
+            document.getElementById('testResultsPanel').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function confirmPurge() {
+            document.getElementById('purgeModal').style.display = 'flex';
+        }
+
+        function closePurgeModal() {
+            document.getElementById('purgeModal').style.display = 'none';
+        }
+
+        async function executePurge() {
+            closePurgeModal();
+            try {
+                const res = await fetch('/api/system/purge-dummy-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('✓ Dummy transactions, receivables, and payables have been completely purged!');
+                    document.getElementById('testResultsPanel').style.display = 'none';
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Failed to connect to backend.');
+            }
+        }
+
+        async function resetDemoData() {
+            if (!confirm('Restore default starter demo dataset?')) return;
+            try {
+                const res = await fetch('/api/system/reset-demo-data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('✓ Default starter demo dataset restored successfully!');
+                    document.getElementById('testResultsPanel').style.display = 'none';
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Failed to connect to backend.');
+            }
+        }
+    </script>
+</body>
+</html>

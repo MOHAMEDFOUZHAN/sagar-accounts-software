@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Income & Revenue</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="page-title">
+                <h1>Income & Revenue Ledger</h1>
+                <p>Track retail sales income, service revenues, interest earned, and miscellaneous receipts</p>
+            </div>
+            <button class="quick-action-btn" onclick="openIncomeModal()">
+                <i class="fas fa-plus"></i> Add New Income
+            </button>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="glass-panel" style="padding: 18px; margin-bottom: 25px;">
+            <form method="GET" action="/income" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                <div style="flex: 1; min-width: 200px;">
+                    <input type="text" name="search" class="form-control" placeholder="Search description, reference, or category..." value="{{ filters.search or '' }}">
+                </div>
+                <div>
+                    <input type="date" name="start_date" class="form-control" value="{{ filters.start_date or '' }}">
+                </div>
+                <div>
+                    <input type="date" name="end_date" class="form-control" value="{{ filters.end_date or '' }}">
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filter</button>
+                <a href="/income" class="btn btn-secondary"><i class="fas fa-undo"></i> Reset</a>
+            </form>
+        </div>
+
+        <!-- Income Ledger Table -->
+        <div class="glass-panel">
+            <div class="panel-header">
+                <h3><i class="fas fa-arrow-down-left" style="color: var(--success);"></i> Revenue History ({{ income_list|length }} Record{% if income_list|length != 1 %}s{% endif %})</h3>
+                <div style="font-weight: 700; color: var(--success); font-size: 1.1rem;">
+                    Total: ₹{{ "%.2f"|format(total_income_sum) }}
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Txn ID</th>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Payment Method</th>
+                            <th>Reference No.</th>
+                            <th>Description</th>
+                            <th style="text-align: right;">Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in income_list %}
+                        <tr>
+                            <td style="font-weight: 600; color: var(--accent);">{{ t.txn_number }}</td>
+                            <td>{{ t.txn_date }}</td>
+                            <td><span class="badge badge-success">{{ t.category_name }}</span></td>
+                            <td>{{ t.payment_method }}</td>
+                            <td>{{ t.reference_no or '-' }}</td>
+                            <td>{{ t.description }}</td>
+                            <td style="text-align: right; font-weight: 700; color: var(--success);">
+                                +₹{{ "%.2f"|format(t.amount) }}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                                No income transactions found for the selected filter.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Income Modal -->
+    <div id="incomeModal" class="modal-overlay">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
+                <h3 style="color: white;"><i class="fas fa-plus-circle" style="color: var(--success);"></i> Record New Income</h3>
+                <button onclick="closeIncomeModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="incomeForm">
+                <div class="form-group">
+                    <label class="form-label">Income Category</label>
+                    <select id="incCategory" class="form-select" required>
+                        {% for c in income_categories %}
+                            <option value="{{ c.name }}">{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount (₹)</label>
+                    <input type="number" step="0.01" id="incAmount" class="form-control" placeholder="e.g. 50000.00" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select id="incPaymentMethod" class="form-select" required>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Cash">Cash</option>
+                        <option value="Card">Card</option>
+                        <option value="Cheque">Cheque</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reference / Receipt No.</label>
+                    <input type="text" id="incRef" class="form-control" placeholder="e.g. INV-9912 or NEFT-881">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <input type="text" id="incDesc" class="form-control" placeholder="Details of income transaction" required>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 25px;">
+                    <button type="submit" class="btn btn-success" style="flex: 1;">Save Income</button>
+                    <button type="button" onclick="closeIncomeModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openIncomeModal() { document.getElementById('incomeModal').style.display = 'flex'; }
+        function closeIncomeModal() { document.getElementById('incomeModal').style.display = 'none'; }
+
+        document.getElementById('incomeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const payload = {
+                account_type: 'Revenue',
+                category_name: document.getElementById('incCategory').value,
+                amount: document.getElementById('incAmount').value,
+                payment_method: document.getElementById('incPaymentMethod').value,
+                reference_no: document.getElementById('incRef').value,
+                description: document.getElementById('incDesc').value
+            };
+            const res = await fetch('/api/quick-entry', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert(data.error);
+            }
+        });
+    </script>
+</body>
+</html>

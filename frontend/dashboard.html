@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="page-title">
+                <h1>Accounts Financial Dashboard</h1>
+                <p>Real-time view of revenue, COGS, operating expenses, P&L, receivables, and payables</p>
+            </div>
+            <a href="/entry" class="quick-action-btn">
+                <i class="fas fa-plus"></i> Quick Accounting Entry
+            </a>
+        </div>
+
+        <!-- Formula Banner from PDF -->
+        <div class="formula-card">
+            <i class="fas fa-square-root-variable"></i>
+            Formula: TOTAL REVENUE [ - ] TOTAL COGS [ direct expenses ] = GROSS PROFIT | GROSS PROFIT [ - ] OPERATING EXPENSES = NET PROFIT
+        </div>
+
+        <!-- KPI Cards Grid -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-icon income"><i class="fas fa-coins"></i></div>
+                <div class="kpi-title">Total Revenue / Sales</div>
+                <div class="kpi-value">₹{{ "%.2f"|format(summary.total_income) }}</div>
+                <span class="kpi-badge badge-success"><i class="fas fa-arrow-up"></i> Income</span>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon cogs"><i class="fas fa-industry"></i></div>
+                <div class="kpi-title">Direct Expenses (COGS)</div>
+                <div class="kpi-value">₹{{ "%.2f"|format(summary.total_cogs) }}</div>
+                <span class="kpi-badge badge-warning"><i class="fas fa-boxes"></i> Direct Costs</span>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon opex"><i class="fas fa-receipt"></i></div>
+                <div class="kpi-title">Operating Expenses</div>
+                <div class="kpi-value">₹{{ "%.2f"|format(summary.total_opex) }}</div>
+                <span class="kpi-badge badge-danger"><i class="fas fa-store"></i> Overhead Costs</span>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon profit"><i class="fas fa-chart-line"></i></div>
+                <div class="kpi-title">Gross Profit</div>
+                <div class="kpi-value" style="color: #60a5fa;">₹{{ "%.2f"|format(summary.gross_profit) }}</div>
+                <span class="kpi-badge badge-info">Revenue - COGS</span>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon profit" style="background: rgba(16, 185, 129, 0.15);"><i class="fas fa-wallet"></i></div>
+                <div class="kpi-title">Net Profit</div>
+                <div class="kpi-value" style="color: #34d399;">₹{{ "%.2f"|format(summary.net_profit) }}</div>
+                <span class="kpi-badge badge-success">Gross Profit - OpEx</span>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon receivable"><i class="fas fa-hand-holding-usd"></i></div>
+                <div class="kpi-title">Receivables</div>
+                <div class="kpi-value">₹{{ "%.2f"|format(summary.total_receivables) }}</div>
+                <span class="kpi-badge badge-info">Outstanding to receive</span>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon payable"><i class="fas fa-file-invoice-dollar"></i></div>
+                <div class="kpi-title">Payables</div>
+                <div class="kpi-value">₹{{ "%.2f"|format(summary.total_payables) }}</div>
+                <span class="kpi-badge badge-danger">Outstanding to pay</span>
+            </div>
+        </div>
+
+        <!-- Charts & Recent Activity Section -->
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 25px; margin-bottom: 30px;">
+            <!-- Financial Performance Chart -->
+            <div class="glass-panel" style="margin-bottom: 0;">
+                <div class="panel-header">
+                    <h3><i class="fas fa-chart-pie"></i> Financial Composition & Breakdown</h3>
+                </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="financialChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Urgent Alerts & Summary -->
+            <div class="glass-panel" style="margin-bottom: 0;">
+                <div class="panel-header">
+                    <h3><i class="fas fa-bell" style="color: var(--warning);"></i> Financial Alerts</h3>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">OVERDUE RECEIVABLES</div>
+                        {% if summary.overdue_receivables %}
+                            {% for r in summary.overdue_receivables %}
+                            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 6px; font-size: 0.85rem;">
+                                <div style="font-weight: 600; color: white;">{{ r.customer_name }}</div>
+                                <div style="display: flex; justify-content: space-between; color: var(--danger); margin-top: 4px;">
+                                    <span>Due: {{ r.due_date }}</span>
+                                    <span>₹{{ "%.2f"|format(r.remaining_balance) }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div style="font-size: 0.85rem; color: var(--success);"><i class="fas fa-check-circle"></i> No overdue receivables</div>
+                        {% endif %}
+                    </div>
+
+                    <div style="margin-top: 10px;">
+                        <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">OVERDUE PAYABLES</div>
+                        {% if summary.overdue_payables %}
+                            {% for p in summary.overdue_payables %}
+                            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 6px; font-size: 0.85rem;">
+                                <div style="font-weight: 600; color: white;">{{ p.supplier_name }}</div>
+                                <div style="display: flex; justify-content: space-between; color: var(--warning); margin-top: 4px;">
+                                    <span>Due: {{ p.due_date }}</span>
+                                    <span>₹{{ "%.2f"|format(p.remaining_balance) }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div style="font-size: 0.85rem; color: var(--success);"><i class="fas fa-check-circle"></i> No overdue payables</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Transactions Table -->
+        <div class="glass-panel">
+            <div class="panel-header">
+                <h3><i class="fas fa-history"></i> Recent Financial Transactions</h3>
+                <a href="/transactions" style="color: var(--primary); text-decoration: none; font-size: 0.9rem; font-weight: 600;">View All <i class="fas fa-arrow-right"></i></a>
+            </div>
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Txn ID</th>
+                            <th>Date & Time</th>
+                            <th>Category</th>
+                            <th>Account Type</th>
+                            <th>Payment</th>
+                            <th>Description</th>
+                            <th style="text-align: right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in summary.recent_transactions %}
+                        <tr>
+                            <td style="font-weight: 600; color: var(--accent);">{{ t.txn_number }}</td>
+                            <td>{{ t.txn_date }}</td>
+                            <td><span class="badge badge-purple">{{ t.category_name }}</span></td>
+                            <td>
+                                {% if t.account_type == 'Revenue' %}
+                                    <span class="badge badge-success">Revenue</span>
+                                {% elif t.account_type == 'Direct Expense' %}
+                                    <span class="badge badge-warning">Direct COGS</span>
+                                {% elif t.account_type == 'Operating Expense' %}
+                                    <span class="badge badge-danger">Operating Exp</span>
+                                {% else %}
+                                    <span class="badge badge-info">{{ t.account_type }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ t.payment_method }}</td>
+                            <td>{{ t.description }}</td>
+                            <td style="text-align: right; font-weight: 700; color: {% if t.txn_type == 'Income' %}var(--success){% else %}var(--danger){% endif %};">
+                                {% if t.txn_type == 'Income' %}+{% else %}-{% endif %}₹{{ "%.2f"|format(t.amount) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('financialChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Total Revenue', 'Direct COGS', 'Operating Exp', 'Gross Profit', 'Net Profit'],
+                datasets: [{
+                    label: 'Financial Breakdown (₹)',
+                    data: [
+                        {{ summary.total_income }},
+                        {{ summary.total_cogs }},
+                        {{ summary.total_opex }},
+                        {{ summary.gross_profit }},
+                        {{ summary.net_profit }}
+                    ],
+                    backgroundColor: [
+                        'rgba(16, 185, 129, 0.7)',
+                        'rgba(245, 158, 11, 0.7)',
+                        'rgba(239, 68, 68, 0.7)',
+                        'rgba(99, 102, 241, 0.7)',
+                        'rgba(6, 182, 212, 0.7)'
+                    ],
+                    borderColor: [
+                        '#10b981',
+                        '#f59e0b',
+                        '#ef4444',
+                        '#6366f1',
+                        '#06b6d4'
+                    ],
+                    borderWidth: 1.5,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        ticks: { color: '#94a3b8' },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    x: {
+                        ticks: { color: '#94a3b8' },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Category Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="page-title">
+                <h1>Chart of Accounts & Categories</h1>
+                <p>Manage financial categories for Revenues, Direct COGS, Operating Overheads, Assets, Liabilities, and Equity</p>
+            </div>
+            <button class="quick-action-btn" onclick="openCatModal()">
+                <i class="fas fa-plus"></i> Add New Category
+            </button>
+        </div>
+
+        <!-- Categories Table -->
+        <div class="glass-panel">
+            <div class="panel-header">
+                <h3><i class="fas fa-tags" style="color: var(--primary);"></i> Configured Categories</h3>
+            </div>
+
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Category ID</th>
+                            <th>Category Name</th>
+                            <th>Accounting Classification</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in categories %}
+                        <tr>
+                            <td style="color: var(--text-muted);">#{{ c.id }}</td>
+                            <td style="font-weight: 600; color: white;">{{ c.name }}</td>
+                            <td>
+                                {% if c.type == 'Revenue' %}
+                                    <span class="badge badge-success">Revenue</span>
+                                {% elif c.type == 'Direct Expense' %}
+                                    <span class="badge badge-warning">Direct COGS</span>
+                                {% elif c.type == 'Operating Expense' %}
+                                    <span class="badge badge-danger">Operating Exp</span>
+                                {% elif c.type == 'Asset' %}
+                                    <span class="badge badge-info">Asset</span>
+                                {% elif c.type == 'Liability' %}
+                                    <span class="badge badge-purple">Liability</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">Equity</span>
+                                {% endif %}
+                            </td>
+                            <td style="color: var(--text-muted);">{{ c.description or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Category Modal -->
+    <div id="catModal" class="modal-overlay">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
+                <h3 style="color: white;"><i class="fas fa-tag" style="color: var(--primary);"></i> Add New Category</h3>
+                <button onclick="closeCatModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="catForm">
+                <div class="form-group">
+                    <label class="form-label">Category Name</label>
+                    <input type="text" id="catName" class="form-control" placeholder="e.g. Legal Fees, Software Subscriptions" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Classification Type</label>
+                    <select id="catType" class="form-select" required>
+                        <option value="Operating Expense">Operating Expense</option>
+                        <option value="Direct Expense">Direct Expense (COGS)</option>
+                        <option value="Revenue">Revenue / Income</option>
+                        <option value="Asset">Asset</option>
+                        <option value="Liability">Liability</option>
+                        <option value="Equity">Equity</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <input type="text" id="catDesc" class="form-control" placeholder="Short description of category purpose">
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 25px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Save Category</button>
+                    <button type="button" onclick="closeCatModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openCatModal() { document.getElementById('catModal').style.display = 'flex'; }
+        function closeCatModal() { document.getElementById('catModal').style.display = 'none'; }
+
+        document.getElementById('catForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('catName').value,
+                type: document.getElementById('catType').value,
+                description: document.getElementById('catDesc').value
+            };
+            const res = await fetch('/api/categories/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.status === 'success') location.reload();
+            else alert(data.error);
+        });
+    </script>
+</body>
+</html>

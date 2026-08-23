@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Accounts Payable</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="page-title">
+                <h1>Accounts Payable (Money Owed to Suppliers)</h1>
+                <p>Track vendor invoices, raw material liabilities, due payment schedules, and record disbursements</p>
+            </div>
+            <button class="quick-action-btn" style="background: linear-gradient(135deg, var(--secondary), #be185d);" onclick="openPayModal()">
+                <i class="fas fa-plus"></i> New Payable Entry
+            </button>
+        </div>
+
+        <!-- Payables Ledger Table -->
+        <div class="glass-panel">
+            <div class="panel-header">
+                <h3><i class="fas fa-file-invoice-dollar" style="color: var(--secondary);"></i> Vendor Payables Ledger</h3>
+            </div>
+
+            <div class="table-responsive">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Pay ID</th>
+                            <th>Supplier / Vendor</th>
+                            <th>Invoice Ref</th>
+                            <th>Total (₹)</th>
+                            <th>Paid (₹)</th>
+                            <th>Remaining (₹)</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                            <th style="text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in payables %}
+                        <tr>
+                            <td style="font-weight: 600; color: var(--secondary);">{{ p.payable_no }}</td>
+                            <td>
+                                <div style="font-weight: 600; color: white;">{{ p.supplier_name }}</div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ p.contact_phone or '' }}</div>
+                            </td>
+                            <td>{{ p.invoice_ref or '-' }}</td>
+                            <td>₹{{ "%.2f"|format(p.total_amount) }}</td>
+                            <td style="color: var(--success);">₹{{ "%.2f"|format(p.paid_amount) }}</td>
+                            <td style="font-weight: 700; color: {% if p.remaining_balance > 0 %}var(--danger){% else %}var(--success){% endif %};">
+                                ₹{{ "%.2f"|format(p.remaining_balance) }}
+                            </td>
+                            <td>{{ p.due_date }}</td>
+                            <td>
+                                {% if p.status == 'Paid' %}
+                                    <span class="badge badge-success">PAID</span>
+                                {% elif p.status == 'Partial' %}
+                                    <span class="badge badge-warning">PARTIAL</span>
+                                {% else %}
+                                    <span class="badge badge-danger">PENDING</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: right; display: flex; justify-content: flex-end; gap: 8px; align-items: center;">
+                                {% if p.remaining_balance > 0 %}
+                                <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="openPayDisburseModal({{ p.id }}, '{{ p.supplier_name }}', {{ p.remaining_balance }})">
+                                    <i class="fas fa-money-check-alt"></i> Pay
+                                </button>
+                                {% else %}
+                                <span style="font-size: 0.85rem; color: var(--success);"><i class="fas fa-check-circle"></i> Settled</span>
+                                {% endif %}
+                                <button onclick="deletePay({{ p.id }})" class="btn btn-danger" style="padding: 6px 10px; font-size: 0.8rem;" title="Delete Record">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                                No vendor payables found.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Payable Modal -->
+    <div id="payModal" class="modal-overlay">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
+                <h3 style="color: white;"><i class="fas fa-truck-loading" style="color: var(--secondary);"></i> New Vendor Payable</h3>
+                <button onclick="closePayModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="payForm">
+                <div class="form-group">
+                    <label class="form-label">Supplier / Vendor Name</label>
+                    <input type="text" id="paySupplier" class="form-control" placeholder="e.g. Venkateswara Packaging Ltd" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contact Phone</label>
+                    <input type="text" id="payPhone" class="form-control" placeholder="e.g. 9894012345">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Vendor Invoice Ref</label>
+                        <input type="text" id="payInvoice" class="form-control" placeholder="e.g. SUP-INV-991">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Due Date</label>
+                        <input type="date" id="payDueDate" class="form-control" required>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Total Invoice Amount (₹)</label>
+                        <input type="number" step="0.01" id="payTotal" class="form-control" placeholder="e.g. 32000.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Paid Upfront (₹)</label>
+                        <input type="number" step="0.01" id="payPaid" class="form-control" value="0.00">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <input type="text" id="payNotes" class="form-control" placeholder="Payment terms or supplier remarks">
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 25px;">
+                    <button type="submit" class="btn btn-primary" style="background: var(--secondary); flex: 1;">Create Payable Record</button>
+                    <button type="button" onclick="closePayModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Disburse Payment Modal -->
+    <div id="disburseModal" class="modal-overlay">
+        <div class="modal-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
+                <h3 style="color: white;"><i class="fas fa-money-check-alt" style="color: var(--danger);"></i> Record Payment Disbursement</h3>
+                <button onclick="closePayDisburseModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="disburseForm">
+                <input type="hidden" id="disbursePayId">
+                <div class="form-group">
+                    <label class="form-label">Supplier Name</label>
+                    <input type="text" id="disburseSupplierName" class="form-control" readonly style="opacity: 0.7;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount Disbursed (₹)</label>
+                    <input type="number" step="0.01" id="disburseAmount" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select id="disburseMethod" class="form-select" required>
+                        <option value="Bank Transfer">Bank Transfer (NEFT/RTGS/IMPS)</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Cash">Cash</option>
+                        <option value="Cheque">Cheque</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reference No. / UTR</label>
+                    <input type="text" id="disburseRefNo" class="form-control" placeholder="e.g. UTR-5544100">
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 25px;">
+                    <button type="submit" class="btn btn-danger" style="flex: 1;">Submit Payment</button>
+                    <button type="button" onclick="closePayDisburseModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openPayModal() { document.getElementById('payModal').style.display = 'flex'; }
+        function closePayModal() { document.getElementById('payModal').style.display = 'none'; }
+
+        function openPayDisburseModal(id, name, rem) {
+            document.getElementById('disbursePayId').value = id;
+            document.getElementById('disburseSupplierName').value = name;
+            document.getElementById('disburseAmount').value = rem;
+            document.getElementById('disburseModal').style.display = 'flex';
+        }
+        function closePayDisburseModal() { document.getElementById('disburseModal').style.display = 'none'; }
+
+        document.getElementById('payForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const payload = {
+                supplier_name: document.getElementById('paySupplier').value,
+                contact_phone: document.getElementById('payPhone').value,
+                invoice_ref: document.getElementById('payInvoice').value,
+                due_date: document.getElementById('payDueDate').value,
+                total_amount: document.getElementById('payTotal').value,
+                paid_amount: document.getElementById('payPaid').value,
+                notes: document.getElementById('payNotes').value
+            };
+            const res = await fetch('/api/payables/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.status === 'success') location.reload();
+            else alert(data.error);
+        });
+
+        document.getElementById('disburseForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const payload = {
+                pay_id: document.getElementById('disbursePayId').value,
+                amount_paid: document.getElementById('disburseAmount').value,
+                payment_method: document.getElementById('disburseMethod').value,
+                reference_no: document.getElementById('disburseRefNo').value
+            };
+            const res = await fetch('/api/payables/pay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.status === 'success') location.reload();
+            else alert(data.error);
+        });
+
+        async function deletePay(payId) {
+            if (!confirm('Are you sure you want to delete this payable record?')) return;
+            try {
+                const res = await fetch('/api/payables/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pay_id: payId })
+                });
+                const data = await res.json();
+                if (data.status === 'success') location.reload();
+                else alert('Error: ' + data.error);
+            } catch (err) {
+                alert('Failed to connect to backend.');
+            }
+        }
+    </script>
+</body>
+</html>

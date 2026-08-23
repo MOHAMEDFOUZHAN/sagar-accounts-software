@@ -1,0 +1,76 @@
+<!-- Modular Sidebar Component -->
+<div class="sidebar">
+    <div class="brand">
+        <i class="fas fa-calculator"></i>
+        <div>
+            SAGAR <span style="color: var(--primary);">ACCOUNTS</span>
+            <span class="brand-subtitle">STANDALONE SYSTEM</span>
+        </div>
+    </div>
+
+    <ul class="nav-menu">
+        <li>
+            <a href="/dashboard" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+                <i class="fas fa-chart-line"></i> Dashboard
+            </a>
+        </li>
+        <li>
+            <a href="/entry" class="nav-link {% if active_page == 'entry' %}active{% endif %}">
+                <i class="fas fa-plus-circle"></i> Quick Entry
+            </a>
+        </li>
+        <li>
+            <a href="/income" class="nav-link {% if active_page == 'income' %}active{% endif %}">
+                <i class="fas fa-arrow-down-left"></i> Income / Revenue
+            </a>
+        </li>
+        <li>
+            <a href="/expenses" class="nav-link {% if active_page == 'expenses' %}active{% endif %}">
+                <i class="fas fa-arrow-up-right"></i> Expenses (COGS & OpEx)
+            </a>
+        </li>
+        <li>
+            <a href="/transactions" class="nav-link {% if active_page == 'transactions' %}active{% endif %}">
+                <i class="fas fa-exchange-alt"></i> All Transactions
+            </a>
+        </li>
+        <li>
+            <a href="/receivables" class="nav-link {% if active_page == 'receivables' %}active{% endif %}">
+                <i class="fas fa-hand-holding-usd"></i> Receivables
+            </a>
+        </li>
+        <li>
+            <a href="/payables" class="nav-link {% if active_page == 'payables' %}active{% endif %}">
+                <i class="fas fa-file-invoice-dollar"></i> Payables
+            </a>
+        </li>
+        <li>
+            <a href="/reports" class="nav-link {% if active_page == 'reports' %}active{% endif %}">
+                <i class="fas fa-file-alt"></i> P&L Reports
+            </a>
+        </li>
+        <li>
+            <a href="/categories" class="nav-link {% if active_page == 'categories' %}active{% endif %}">
+                <i class="fas fa-tags"></i> Categories
+            </a>
+        </li>
+        <li>
+            <a href="/test-center" class="nav-link {% if active_page == 'test_center' %}active{% endif %}">
+                <i class="fas fa-vial"></i> Test & Cleanup Center
+            </a>
+        </li>
+    </ul>
+
+    <div class="user-profile">
+        <div class="user-info">
+            <div class="user-avatar">{{ session.get('username', 'A')[0].upper() }}</div>
+            <div>
+                <div style="font-weight: 600; font-size: 0.9rem;">{{ session.get('full_name', 'Accountant') }}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">{{ session.get('role', 'admin') }}</div>
+            </div>
+        </div>
+        <a href="/logout" class="logout-btn" title="Logout">
+            <i class="fas fa-sign-out-alt"></i>
+        </a>
+    </div>
+</div>
