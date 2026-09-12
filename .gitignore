@@ -16,8 +16,18 @@ build/
 
 # Database files
 *.db
+*.db.backup-*
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
+
+# Database backups
+backups/
+accounts.db.backup-*
+
+# Secrets
+APi=opencode/
 
 # IDE
 .vscode/

@@ -3,182 +3,324 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sagar Accounts — Dashboard</title>
+    <title>Sagar Accounts — Executive Financial Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .filter-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .filter-btn.active, .filter-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .pos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .pos-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .pos-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+        .source-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+        .source-sales {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+        .source-inventory {
+            background: rgba(6, 182, 212, 0.15);
+            color: #22d3ee;
+            border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+        .source-manual {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+    </style>
 </head>
 <body>
     {% include 'sidebar.html' %}
 
     <div class="main-content">
-        <div class="top-bar">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div class="page-title">
-                <h1>Accounts Financial Dashboard</h1>
-                <p>Real-time view of revenue, COGS, operating expenses, P&L, receivables, and payables</p>
+                <h1>Executive Financial Dashboard</h1>
+                <p>One Business • One Inventory • One Sales System • One Source of Financial Truth</p>
             </div>
-            <a href="/entry" class="quick-action-btn">
-                <i class="fas fa-plus"></i> Quick Accounting Entry
-            </a>
-        </div>
-
-        <!-- Formula Banner from PDF -->
-        <div class="formula-card">
-            <i class="fas fa-square-root-variable"></i>
-            Formula: TOTAL REVENUE [ - ] TOTAL COGS [ direct expenses ] = GROSS PROFIT | GROSS PROFIT [ - ] OPERATING EXPENSES = NET PROFIT
-        </div>
-
-        <!-- KPI Cards Grid -->
-        <div class="kpi-grid">
-            <div class="kpi-card">
-                <div class="kpi-icon income"><i class="fas fa-coins"></i></div>
-                <div class="kpi-title">Total Revenue / Sales</div>
-                <div class="kpi-value">₹{{ "%.2f"|format(summary.total_income) }}</div>
-                <span class="kpi-badge badge-success"><i class="fas fa-arrow-up"></i> Income</span>
-            </div>
-
-            <div class="kpi-card">
-                <div class="kpi-icon cogs"><i class="fas fa-industry"></i></div>
-                <div class="kpi-title">Direct Expenses (COGS)</div>
-                <div class="kpi-value">₹{{ "%.2f"|format(summary.total_cogs) }}</div>
-                <span class="kpi-badge badge-warning"><i class="fas fa-boxes"></i> Direct Costs</span>
-            </div>
-
-            <div class="kpi-card">
-                <div class="kpi-icon opex"><i class="fas fa-receipt"></i></div>
-                <div class="kpi-title">Operating Expenses</div>
-                <div class="kpi-value">₹{{ "%.2f"|format(summary.total_opex) }}</div>
-                <span class="kpi-badge badge-danger"><i class="fas fa-store"></i> Overhead Costs</span>
-            </div>
-
-            <div class="kpi-card">
-                <div class="kpi-icon profit"><i class="fas fa-chart-line"></i></div>
-                <div class="kpi-title">Gross Profit</div>
-                <div class="kpi-value" style="color: #60a5fa;">₹{{ "%.2f"|format(summary.gross_profit) }}</div>
-                <span class="kpi-badge badge-info">Revenue - COGS</span>
-            </div>
-
-            <div class="kpi-card">
-                <div class="kpi-icon profit" style="background: rgba(16, 185, 129, 0.15);"><i class="fas fa-wallet"></i></div>
-                <div class="kpi-title">Net Profit</div>
-                <div class="kpi-value" style="color: #34d399;">₹{{ "%.2f"|format(summary.net_profit) }}</div>
-                <span class="kpi-badge badge-success">Gross Profit - OpEx</span>
-            </div>
-
-            <div class="kpi-card">
-                <div class="kpi-icon receivable"><i class="fas fa-hand-holding-usd"></i></div>
-                <div class="kpi-title">Receivables</div>
-                <div class="kpi-value">₹{{ "%.2f"|format(summary.total_receivables) }}</div>
-                <span class="kpi-badge badge-info">Outstanding to receive</span>
-            </div>
-
-            <div class="kpi-card">
-                <div class="kpi-icon payable"><i class="fas fa-file-invoice-dollar"></i></div>
-                <div class="kpi-title">Payables</div>
-                <div class="kpi-value">₹{{ "%.2f"|format(summary.total_payables) }}</div>
-                <span class="kpi-badge badge-danger">Outstanding to pay</span>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button onclick="triggerSync()" class="btn-sync" style="background: rgba(6, 182, 212, 0.15); border: 1px solid var(--accent); color: var(--accent); padding: 8px 14px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.85rem;">
+                    <i class="fas fa-sync-alt" id="syncIcon"></i> Sync Live Data
+                </button>
+                <a href="/entry" class="quick-action-btn">
+                    <i class="fas fa-plus-circle"></i> New Accounting Entry
+                </a>
             </div>
         </div>
 
-        <!-- Charts & Recent Activity Section -->
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 25px; margin-bottom: 30px;">
-            <!-- Financial Performance Chart -->
-            <div class="glass-panel" style="margin-bottom: 0;">
-                <div class="panel-header">
-                    <h3><i class="fas fa-chart-pie"></i> Financial Composition & Breakdown</h3>
+        <!-- Filter Bar & Formula Indicator -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+            <div style="display: flex; gap: 6px; align-items: center;">
+                <span style="font-size: 0.8rem; color: var(--text-muted); margin-right: 4px;">Time Filter:</span>
+                <a href="/dashboard?filter=today" class="filter-btn {% if current_filter == 'today' %}active{% endif %}">Today</a>
+                <a href="/dashboard?filter=week" class="filter-btn {% if current_filter == 'week' %}active{% endif %}">This Week</a>
+                <a href="/dashboard?filter=month" class="filter-btn {% if current_filter == 'month' %}active{% endif %}">This Month</a>
+                <a href="/dashboard?filter=year" class="filter-btn {% if current_filter == 'year' %}active{% endif %}">This Year</a>
+                <a href="/dashboard?filter=all" class="filter-btn {% if current_filter == 'all' or not current_filter %}active{% endif %}">All Time</a>
+            </div>
+            <div class="formula-card" style="margin-bottom: 0; padding: 8px 16px; font-size: 0.82rem;">
+                <i class="fas fa-balance-scale"></i>
+                <strong>Gross Profit</strong> = Revenue - COGS &nbsp;|&nbsp; <strong>Net Profit</strong> = Gross Profit - Operating Expenses
+            </div>
+        </div>
+
+        <!-- Top 5 Core KPI Cards (Symmetrical 5-Column Grid) -->
+        <div class="kpi-grid-5">
+            <!-- Total Revenue -->
+            <div class="kpi-card" style="border-top: 3px solid var(--success);">
+                <div>
+                    <div class="kpi-icon income"><i class="fas fa-chart-line"></i></div>
+                    <div class="kpi-title">Total Revenue / Sales</div>
+                    <div class="kpi-value" style="color: #34d399;">₹{{ "{:,.2f}".format(summary.total_revenue) }}</div>
                 </div>
-                <div style="height: 300px; position: relative;">
-                    <canvas id="financialChart"></canvas>
+                <div>
+                    <span class="kpi-badge badge-success"><i class="fas fa-arrow-up"></i> Sales & Inflows</span>
                 </div>
             </div>
 
-            <!-- Urgent Alerts & Summary -->
-            <div class="glass-panel" style="margin-bottom: 0;">
-                <div class="panel-header">
-                    <h3><i class="fas fa-bell" style="color: var(--warning);"></i> Financial Alerts</h3>
+            <!-- Total COGS -->
+            <div class="kpi-card" style="border-top: 3px solid var(--warning);">
+                <div>
+                    <div class="kpi-icon cogs"><i class="fas fa-boxes"></i></div>
+                    <div class="kpi-title">Cost of Goods Sold (COGS)</div>
+                    <div class="kpi-value" style="color: #fbbf24;">₹{{ "{:,.2f}".format(summary.total_cogs) }}</div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                    <div>
-                        <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">OVERDUE RECEIVABLES</div>
-                        {% if summary.overdue_receivables %}
-                            {% for r in summary.overdue_receivables %}
-                            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 6px; font-size: 0.85rem;">
-                                <div style="font-weight: 600; color: white;">{{ r.customer_name }}</div>
-                                <div style="display: flex; justify-content: space-between; color: var(--danger); margin-top: 4px;">
-                                    <span>Due: {{ r.due_date }}</span>
-                                    <span>₹{{ "%.2f"|format(r.remaining_balance) }}</span>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        {% else %}
-                            <div style="font-size: 0.85rem; color: var(--success);"><i class="fas fa-check-circle"></i> No overdue receivables</div>
-                        {% endif %}
-                    </div>
+                <div>
+                    <span class="kpi-badge badge-warning"><i class="fas fa-truck-loading"></i> Direct Costs</span>
+                </div>
+            </div>
 
-                    <div style="margin-top: 10px;">
-                        <div style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">OVERDUE PAYABLES</div>
-                        {% if summary.overdue_payables %}
-                            {% for p in summary.overdue_payables %}
-                            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); padding: 10px 14px; border-radius: var(--radius-sm); margin-bottom: 6px; font-size: 0.85rem;">
-                                <div style="font-weight: 600; color: white;">{{ p.supplier_name }}</div>
-                                <div style="display: flex; justify-content: space-between; color: var(--warning); margin-top: 4px;">
-                                    <span>Due: {{ p.due_date }}</span>
-                                    <span>₹{{ "%.2f"|format(p.remaining_balance) }}</span>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        {% else %}
-                            <div style="font-size: 0.85rem; color: var(--success);"><i class="fas fa-check-circle"></i> No overdue payables</div>
-                        {% endif %}
+            <!-- Gross Profit -->
+            <div class="kpi-card" style="border-top: 3px solid var(--accent); background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(15, 23, 42, 0.8));">
+                <div>
+                    <div class="kpi-icon profit" style="background: rgba(6, 182, 212, 0.2); color: var(--accent);"><i class="fas fa-coins"></i></div>
+                    <div class="kpi-title">Gross Profit</div>
+                    <div class="kpi-value" style="color: #38bdf8;">₹{{ "{:,.2f}".format(summary.gross_profit) }}</div>
+                </div>
+                <div>
+                    <span class="kpi-badge badge-info"><i class="fas fa-calculator"></i> Revenue - COGS</span>
+                </div>
+            </div>
+
+            <!-- Operating Expenses -->
+            <div class="kpi-card" style="border-top: 3px solid var(--danger);">
+                <div>
+                    <div class="kpi-icon opex"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <div class="kpi-title">Operating Expenses</div>
+                    <div class="kpi-value" style="color: #f87171;">₹{{ "{:,.2f}".format(summary.total_opex) }}</div>
+                </div>
+                <div>
+                    <span class="kpi-badge badge-danger"><i class="fas fa-store"></i> Shop & Admin OpEx</span>
+                </div>
+            </div>
+
+            <!-- Net Profit -->
+            <div class="kpi-card" style="border-top: 3px solid var(--primary); background: linear-gradient(135deg, rgba(99, 102, 241, 0.14), rgba(15, 23, 42, 0.8));">
+                <div>
+                    <div class="kpi-icon profit"><i class="fas fa-award"></i></div>
+                    <div class="kpi-title">Net Profit</div>
+                    <div class="kpi-value" style="color: {% if summary.net_profit >= 0 %}#34d399{% else %}#f87171{% endif %};">
+                        ₹{{ "{:,.2f}".format(summary.net_profit) }}
                     </div>
                 </div>
+                <div>
+                    <span class="kpi-badge badge-purple"><i class="fas fa-balance-scale"></i> Gross - OpEx</span>
+                </div>
             </div>
         </div>
 
-        <!-- Recent Transactions Table -->
+        <!-- Position Grid: Liquid Assets, Payables, Receivables, Stock, Tax -->
+        <h3 style="font-size: 0.92rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-wallet" style="color: var(--primary);"></i> Balance Sheet Position & Working Capital
+        </h3>
+        <div class="pos-grid-responsive">
+            <div class="pos-card">
+                <div class="pos-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--success);"><i class="fas fa-money-bill-wave"></i></div>
+                <div>
+                    <div class="pos-label">Cash on Hand</div>
+                    <div class="pos-amount">₹{{ "{:,.2f}".format(summary.cash_balance) }}</div>
+                </div>
+            </div>
+
+            <div class="pos-card">
+                <div class="pos-icon" style="background: rgba(99, 102, 241, 0.15); color: var(--primary);"><i class="fas fa-university"></i></div>
+                <div>
+                    <div class="pos-label">Bank & UPI Balance</div>
+                    <div class="pos-amount">₹{{ "{:,.2f}".format(summary.bank_balance) }}</div>
+                </div>
+            </div>
+
+            <div class="pos-card">
+                <div class="pos-icon" style="background: rgba(6, 182, 212, 0.15); color: var(--accent);"><i class="fas fa-warehouse"></i></div>
+                <div>
+                    <div class="pos-label">Inventory Valuation</div>
+                    <div class="pos-amount">₹{{ "{:,.2f}".format(summary.inventory_value) }}</div>
+                </div>
+            </div>
+
+            <div class="pos-card">
+                <div class="pos-icon" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;"><i class="fas fa-user-clock"></i></div>
+                <div>
+                    <div class="pos-label">Accounts Receivable</div>
+                    <div class="pos-amount">₹{{ "{:,.2f}".format(summary.total_receivables) }}</div>
+                </div>
+            </div>
+
+            <div class="pos-card">
+                <div class="pos-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--danger);"><i class="fas fa-file-invoice"></i></div>
+                <div>
+                    <div class="pos-label">Accounts Payable</div>
+                    <div class="pos-amount">₹{{ "{:,.2f}".format(summary.total_payables) }}</div>
+                </div>
+            </div>
+
+            <div class="pos-card">
+                <div class="pos-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--warning);"><i class="fas fa-percentage"></i></div>
+                <div>
+                    <div class="pos-label">Net GST Payable</div>
+                    <div class="pos-amount">₹{{ "{:,.2f}".format(summary.net_gst_payable) }}</div>
+                </div>
+            </div>
+
+            <div class="pos-card">
+                <div class="pos-icon" style="background: rgba(168, 85, 247, 0.15); color: #c084fc;"><i class="fas fa-landmark"></i></div>
+                <div>
+                    <div class="pos-label">Loans Outstanding</div>
+                    <div class="pos-amount">₹{{ "{:,.2f}".format(summary.loans_outstanding) }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section (Responsive 2-Column Grid) -->
+        <div class="charts-grid">
+            <div class="glass-panel" style="margin-bottom: 0;">
+                <div class="panel-header">
+                    <h3><i class="fas fa-chart-bar" style="color: var(--primary);"></i> Profitability & Margin Composition</h3>
+                </div>
+                <div style="height: 270px; position: relative;">
+                    <canvas id="profitChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-panel" style="margin-bottom: 0;">
+                <div class="panel-header">
+                    <h3><i class="fas fa-pie-chart" style="color: var(--accent);"></i> Cash vs Working Capital</h3>
+                </div>
+                <div style="height: 270px; position: relative;">
+                    <canvas id="capitalChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Multi-Source Accounting Transactions -->
         <div class="glass-panel">
             <div class="panel-header">
-                <h3><i class="fas fa-history"></i> Recent Financial Transactions</h3>
-                <a href="/transactions" style="color: var(--primary); text-decoration: none; font-size: 0.9rem; font-weight: 600;">View All <i class="fas fa-arrow-right"></i></a>
+                <h3><i class="fas fa-history" style="color: var(--accent);"></i> Recent Transactions (Live Integrated Feed)</h3>
+                <a href="/ledger" class="btn btn-secondary" style="font-size: 0.82rem; padding: 6px 14px;">
+                    View Full Ledger <i class="fas fa-arrow-right"></i>
+                </a>
             </div>
+
             <div class="table-responsive">
-                <table class="custom-table">
+                <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Txn ID</th>
-                            <th>Date & Time</th>
-                            <th>Category</th>
-                            <th>Account Type</th>
-                            <th>Payment</th>
+                            <th style="width: 120px;">Date</th>
                             <th>Description</th>
-                            <th style="text-align: right;">Amount</th>
+                            <th style="width: 180px;">Account Impacted</th>
+                            <th class="col-currency" style="width: 140px;">Amount</th>
+                            <th class="col-action" style="width: 90px;">Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for t in summary.recent_transactions %}
-                        <tr>
-                            <td style="font-weight: 600; color: var(--accent);">{{ t.txn_number }}</td>
-                            <td>{{ t.txn_date }}</td>
-                            <td><span class="badge badge-purple">{{ t.category_name }}</span></td>
-                            <td>
-                                {% if t.account_type == 'Revenue' %}
-                                    <span class="badge badge-success">Revenue</span>
-                                {% elif t.account_type == 'Direct Expense' %}
-                                    <span class="badge badge-warning">Direct COGS</span>
-                                {% elif t.account_type == 'Operating Expense' %}
-                                    <span class="badge badge-danger">Operating Exp</span>
-                                {% else %}
-                                    <span class="badge badge-info">{{ t.account_type }}</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ t.payment_method }}</td>
-                            <td>{{ t.description }}</td>
-                            <td style="text-align: right; font-weight: 700; color: {% if t.txn_type == 'Income' %}var(--success){% else %}var(--danger){% endif %};">
-                                {% if t.txn_type == 'Income' %}+{% else %}-{% endif %}₹{{ "%.2f"|format(t.amount) }}
-                            </td>
-                        </tr>
-                        {% endfor %}
+                        {% if summary.recent_txns %}
+                            {% for t in summary.recent_txns %}
+                            <tr>
+                                <td class="col-nowrap" style="color: var(--text-muted); font-size: 0.85rem;">{{ t.entry_date }}</td>
+                                <td>
+                                    <div>
+                                        <span class="table-truncate" title="{{ t.narration }}" style="font-weight: 500;">
+                                            {{ t.narration }}
+                                        </span>
+                                        <div style="margin-top: 3px;">
+                                            {% if t.source_module == 'sales' %}
+                                                <span class="source-badge source-sales" style="font-size: 0.68rem; padding: 1px 6px;"><i class="fas fa-shopping-bag"></i> Sales</span>
+                                            {% elif t.source_module == 'inventory' %}
+                                                <span class="source-badge source-inventory" style="font-size: 0.68rem; padding: 1px 6px;"><i class="fas fa-boxes"></i> Inventory</span>
+                                            {% else %}
+                                                <span class="source-badge source-manual" style="font-size: 0.68rem; padding: 1px 6px;"><i class="fas fa-pen"></i> Manual</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span style="color: var(--text-main); font-weight: 600;">{{ t.primary_account }}</span>
+                                    <span style="font-size: 0.74rem; color: var(--text-muted); display: block;">{{ t.major_type }}</span>
+                                </td>
+                                <td class="col-currency" style="font-weight: 700; color: #f8fafc; font-size: 0.95rem;">
+                                    ₹{{ "{:,.2f}".format(t.total_amount) }}
+                                </td>
+                                <td class="col-action">
+                                    <button type="button"
+                                            onclick="viewDashboardTxnDetails('{{ t.entry_number }}', '{{ t.entry_date }}', '{{ t.source_module or 'manual' }}', '{{ t.narration|replace('\'', '\\\'') }}', '{{ t.primary_account|replace('\'', '\\\'') }}', '{{ t.major_type }}', {{ t.total_amount }})"
+                                            class="btn-details" title="View Transaction Details">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center" style="color: var(--text-muted); padding: 36px 20px;">
+                                    <i class="fas fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 8px; opacity: 0.4;"></i>
+                                    No accounting transactions recorded yet. Click "Sync Live Data" to ingest transactions.
+                                </td>
+                            </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
@@ -186,56 +328,147 @@
     </div>
 
     <script>
-        const ctx = document.getElementById('financialChart').getContext('2d');
-        new Chart(ctx, {
+        function viewDashboardTxnDetails(entryNo, date, source, narration, account, majorType, amount) {
+            showRecordDetails({
+                title: 'Transaction: ' + entryNo,
+                subtitle: 'Double-Entry Accounting Movement',
+                icon: 'fas fa-receipt',
+                iconColor: 'var(--primary)',
+                badge: {
+                    text: source.toUpperCase(),
+                    class: source === 'sales' ? 'source-badge source-sales' : (source === 'inventory' ? 'source-badge source-inventory' : 'source-badge source-manual')
+                },
+                sections: [
+                    {
+                        title: 'Transaction Identification',
+                        icon: 'fas fa-file-invoice',
+                        fields: [
+                            { label: 'Journal Entry #', value: entryNo, code: true },
+                            { label: 'Posting Date', value: date },
+                            { label: 'Source System', value: source.charAt(0).toUpperCase() + source.slice(1) }
+                        ]
+                    },
+                    {
+                        title: 'Account & Classification',
+                        icon: 'fas fa-folder-open',
+                        fields: [
+                            { label: 'Impacted Account', value: account, bold: true },
+                            { label: 'Major Classification', value: majorType || 'Balance Sheet' }
+                        ]
+                    },
+                    {
+                        title: 'Financial Movement',
+                        icon: 'fas fa-coins',
+                        fields: [
+                            { label: 'Total Transaction Amount', value: '₹' + Number(amount).toLocaleString('en-IN', {minimumFractionDigits: 2}), color: '#f8fafc', bold: true }
+                        ]
+                    },
+                    {
+                        title: 'Description',
+                        icon: 'fas fa-align-left',
+                        fields: [
+                            { label: 'Narration', value: narration || 'Journal posting', fullWidth: true }
+                        ]
+                    }
+                ]
+            });
+        }
+
+        // Profitability Breakdown Chart
+        const ctxProfit = document.getElementById('profitChart').getContext('2d');
+        new Chart(ctxProfit, {
             type: 'bar',
             data: {
-                labels: ['Total Revenue', 'Direct COGS', 'Operating Exp', 'Gross Profit', 'Net Profit'],
+                labels: ['Total Revenue', 'COGS (Direct)', 'Gross Profit', 'Operating Expenses', 'Net Profit'],
                 datasets: [{
-                    label: 'Financial Breakdown (₹)',
+                    label: 'Amount (₹)',
                     data: [
-                        {{ summary.total_income }},
+                        {{ summary.total_revenue }},
                         {{ summary.total_cogs }},
-                        {{ summary.total_opex }},
                         {{ summary.gross_profit }},
+                        {{ summary.total_opex }},
                         {{ summary.net_profit }}
                     ],
                     backgroundColor: [
-                        'rgba(16, 185, 129, 0.7)',
-                        'rgba(245, 158, 11, 0.7)',
-                        'rgba(239, 68, 68, 0.7)',
-                        'rgba(99, 102, 241, 0.7)',
-                        'rgba(6, 182, 212, 0.7)'
+                        'rgba(16, 185, 129, 0.75)',
+                        'rgba(245, 158, 11, 0.75)',
+                        'rgba(6, 182, 212, 0.75)',
+                        'rgba(239, 68, 68, 0.75)',
+                        'rgba(99, 102, 241, 0.85)'
                     ],
                     borderColor: [
-                        '#10b981',
-                        '#f59e0b',
-                        '#ef4444',
-                        '#6366f1',
-                        '#06b6d4'
+                        '#10b981', '#f59e0b', '#06b6d4', '#ef4444', '#6366f1'
                     ],
                     borderWidth: 1.5,
-                    borderRadius: 8
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#94a3b8', callback: v => '₹' + v.toLocaleString() }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+
+        // Capital Composition Doughnut Chart
+        const ctxCap = document.getElementById('capitalChart').getContext('2d');
+        new Chart(ctxCap, {
+            type: 'doughnut',
+            data: {
+                labels: ['Cash on Hand', 'Bank & UPI', 'Inventory Stock', 'Receivables'],
+                datasets: [{
+                    data: [
+                        {{ summary.cash_balance }},
+                        {{ summary.bank_balance }},
+                        {{ summary.inventory_value }},
+                        {{ summary.total_receivables }}
+                    ],
+                    backgroundColor: [
+                        '#10b981', '#6366f1', '#06b6d4', '#3b82f6'
+                    ],
+                    borderWidth: 0
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    y: {
-                        ticks: { color: '#94a3b8' },
-                        grid: { color: 'rgba(255,255,255,0.05)' }
-                    },
-                    x: {
-                        ticks: { color: '#94a3b8' },
-                        grid: { display: false }
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 }
                     }
                 }
             }
         });
+
+        function triggerSync() {
+            const icon = document.getElementById('syncIcon');
+            icon.classList.add('fa-spin');
+            fetch('/api/sync/run', { method: 'POST' })
+                .then(r => r.json())
+                .then(res => {
+                    icon.classList.remove('fa-spin');
+                    if (res.status === 'success') {
+                        location.reload();
+                    } else {
+                        alert('Sync error: ' + (res.message || 'Unknown'));
+                    }
+                })
+                .catch(err => {
+                    icon.classList.remove('fa-spin');
+                    alert('Sync request failed: ' + err);
+                });
+        }
     </script>
 </body>
 </html>

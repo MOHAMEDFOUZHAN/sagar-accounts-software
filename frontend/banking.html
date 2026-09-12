@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Cash & Bank Accounting</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .recon-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .badge-matched { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .badge-unmatched { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+        .badge-discrepancy { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-title">
+                <h1>Cash & Bank Accounting</h1>
+                <p>Real-time General Ledger liquid assets, contra transfers, bank charges & reconciliation</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="openTransferModal()" class="btn btn-primary" style="font-size: 0.85rem;">
+                    <i class="fas fa-exchange-alt"></i> Contra Transfer
+                </button>
+                <button onclick="openChargesModal()" class="btn btn-secondary" style="font-size: 0.85rem;">
+                    <i class="fas fa-file-invoice"></i> Bank Charges
+                </button>
+                <a href="/reconciliation" class="btn btn-secondary" style="font-size: 0.85rem;">
+                    <i class="fas fa-check-double"></i> Full Recon
+                </a>
+            </div>
+        </div>
+
+        <!-- Liquid Assets KPI Grid -->
+        <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 25px;">
+            <div class="kpi-card" style="border-top: 3px solid #10b981;">
+                <div class="kpi-icon" style="background: rgba(16, 185, 129, 0.2); color: #34d399;"><i class="fas fa-money-bill-wave"></i></div>
+                <div class="kpi-title">Cash on Hand (1010)</div>
+                <div class="kpi-value" style="color: #34d399;">₹{{ "{:,.2f}".format(summary.cash_balance) }}</div>
+                <span class="kpi-badge badge-success">Physical Vault GL</span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid #3b82f6;">
+                <div class="kpi-icon" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;"><i class="fas fa-university"></i></div>
+                <div class="kpi-title">Bank Account (1020)</div>
+                <div class="kpi-value" style="color: #60a5fa;">₹{{ "{:,.2f}".format(summary.bank_balance) }}</div>
+                <span class="kpi-badge badge-info">Current Operating GL</span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid #8b5cf6;">
+                <div class="kpi-icon" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa;"><i class="fas fa-qrcode"></i></div>
+                <div class="kpi-title">UPI & Digital (1030)</div>
+                <div class="kpi-value" style="color: #a78bfa;">₹{{ "{:,.2f}".format(summary.upi_balance) }}</div>
+                <span class="kpi-badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa;">Digital Clearing</span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid var(--accent);">
+                <div class="kpi-icon" style="background: rgba(245, 158, 11, 0.2); color: var(--accent);"><i class="fas fa-wallet"></i></div>
+                <div class="kpi-title">Total Liquid Funds</div>
+                <div class="kpi-value" style="color: #fbbf24;">₹{{ "{:,.2f}".format(summary.total_liquid_assets) }}</div>
+                <span class="kpi-badge badge-warning">Available Capital</span>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+            <!-- Bank Reconciliation Worksheet Preview -->
+            <div class="glass-panel">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3><i class="fas fa-tasks" style="color: #60a5fa;"></i> Bank Reconciliation Status</h3>
+                    <span class="recon-badge {{ 'badge-matched' if worksheet.status == 'RECONCILED' else 'badge-discrepancy' }}">
+                        {{ worksheet.status }}
+                    </span>
+                </div>
+                <div style="padding: 15px; font-size: 0.9rem;">
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <span style="color: var(--text-muted);">Book Balance (GL 1020):</span>
+                        <strong style="color: #60a5fa;">₹{{ "{:,.2f}".format(worksheet.gl_book_balance) }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <span style="color: var(--text-muted);">Statement Balance:</span>
+                        <strong style="color: #34d399;">₹{{ "{:,.2f}".format(worksheet.statement_balance) }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <span style="color: var(--text-muted);">Deposits in Transit (+):</span>
+                        <span>₹{{ "{:,.2f}".format(worksheet.deposits_in_transit) }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <span style="color: var(--text-muted);">Outstanding Payments (-):</span>
+                        <span>₹{{ "{:,.2f}".format(worksheet.outstanding_payments) }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; font-size: 1rem;">
+                        <span><strong>Reconciliation Variance:</strong></span>
+                        <strong style="color: {{ '#34d399' if worksheet.reconciliation_difference == 0 else '#f87171' }};">
+                            ₹{{ "{:,.2f}".format(worksheet.reconciliation_difference) }}
+                        </strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contra Transfers Quick Audit -->
+            <div class="glass-panel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-history" style="color: #a78bfa;"></i> Recent Contra Transfers</h3>
+                </div>
+                <div class="table-container" style="max-height: 230px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Voucher #</th>
+                                <th>Amount</th>
+                                <th>Narration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if summary.recent_transfers %}
+                                {% for t in summary.recent_transfers %}
+                                <tr>
+                                    <td style="color: var(--text-muted); font-size: 0.8rem;">{{ t.date }}</td>
+                                    <td>
+                                        <a href="javascript:void(0)" onclick="showRecordDetails('journal', {{ t.id }})" style="color: var(--accent); font-weight: 600;">
+                                            {{ t.entry_number }}
+                                        </a>
+                                    </td>
+                                    <td style="font-weight: 700; color: #34d399;">₹{{ "{:,.2f}".format(t.amount) }}</td>
+                                    <td style="font-size: 0.8rem; color: var(--text-muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        {{ t.narration }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 25px;">No contra transfers recorded.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contra Transfer Modal -->
+    <div id="transferModal" class="modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 450px; padding: 25px; border-radius: 12px; background: #1e293b; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; color: #f8fafc;"><i class="fas fa-exchange-alt" style="color: #60a5fa;"></i> Contra Transfer</h3>
+                <button onclick="closeTransferModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="transferForm" onsubmit="submitTransfer(event)">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px;">Transfer From (Source)</label>
+                    <select id="transferFrom" class="form-control" style="width: 100%; padding: 10px; border-radius: 6px; background: #0f172a; color: #f8fafc; border: 1px solid #334155;" required>
+                        <option value="1010">1010 - Cash on Hand</option>
+                        <option value="1020">1020 - Bank Current Account</option>
+                        <option value="1030">1030 - UPI & Digital Clearing</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px;">Transfer To (Destination)</label>
+                    <select id="transferTo" class="form-control" style="width: 100%; padding: 10px; border-radius: 6px; background: #0f172a; color: #f8fafc; border: 1px solid #334155;" required>
+                        <option value="1020">1020 - Bank Current Account</option>
+                        <option value="1010">1010 - Cash on Hand</option>
+                        <option value="1030">1030 - UPI & Digital Clearing</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px;">Amount (₹)</label>
+                    <input type="number" step="0.01" id="transferAmount" class="form-control" style="width: 100%; padding: 10px; border-radius: 6px; background: #0f172a; color: #f8fafc; border: 1px solid #334155;" placeholder="0.00" required>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px;">Reference / Cheque #</label>
+                    <input type="text" id="transferRef" class="form-control" style="width: 100%; padding: 10px; border-radius: 6px; background: #0f172a; color: #f8fafc; border: 1px solid #334155;" placeholder="e.g. CHQ-88129">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px;">Narration</label>
+                    <input type="text" id="transferNarration" class="form-control" style="width: 100%; padding: 10px; border-radius: 6px; background: #0f172a; color: #f8fafc; border: 1px solid #334155;" placeholder="e.g. Cash deposit to bank vault">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" onclick="closeTransferModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Post Contra Voucher</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bank Charges Modal -->
+    <div id="chargesModal" class="modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 450px; padding: 25px; border-radius: 12px; background: #1e293b; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; color: #f8fafc;"><i class="fas fa-file-invoice" style="color: #f87171;"></i> Record Bank Charges</h3>
+                <button onclick="closeChargesModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form id="chargesForm" onsubmit="submitCharges(event)">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px;">Bank Account</label>
+                    <select id="chargesBank" class="form-control" style="width: 100%; padding: 10px; border-radius: 6px; background: #0f172a; color: #f8fafc; border: 1px solid #334155;">
+                        <option value="1020">1020 - Bank Current Account</option>
+                        <option value="1030">1030 - UPI & Digital Clearing</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px;">Charge Amount (₹)</label>
+                    <input type="number" step="0.01" id="chargesAmount" class="form-control" style="width: 100%; padding: 10px; border-radius: 6px; background: #0f172a; color: #f8fafc; border: 1px solid #334155;" placeholder="0.00" required>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px;">Description</label>
+                    <input type="text" id="chargesDesc" class="form-control" style="width: 100%; padding: 10px; border-radius: 6px; background: #0f172a; color: #f8fafc; border: 1px solid #334155;" placeholder="e.g. Monthly maintenance / SMS alert fee">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" onclick="closeChargesModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Post Bank Charges</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openTransferModal() {
+            document.getElementById('transferModal').style.display = 'flex';
+        }
+        function closeTransferModal() {
+            document.getElementById('transferModal').style.display = 'none';
+        }
+        function openChargesModal() {
+            document.getElementById('chargesModal').style.display = 'flex';
+        }
+        function closeChargesModal() {
+            document.getElementById('chargesModal').style.display = 'none';
+        }
+
+        async function submitTransfer(e) {
+            e.preventDefault();
+            const fromCode = document.getElementById('transferFrom').value;
+            const toCode = document.getElementById('transferTo').value;
+            const amount = parseFloat(document.getElementById('transferAmount').value);
+            const ref = document.getElementById('transferRef').value;
+            const narration = document.getElementById('transferNarration').value;
+
+            if (fromCode === toCode) {
+                alert("Source and Destination accounts must be different.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/banking/transfer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        from_account_code: fromCode,
+                        to_account_code: toCode,
+                        amount: amount,
+                        reference_no: ref,
+                        narration: narration
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert("Contra Transfer posted successfully!");
+                    window.location.reload();
+                } else {
+                    alert("Error: " + data.message);
+                }
+            } catch (err) {
+                alert("Network error: " + err.message);
+            }
+        }
+
+        async function submitCharges(e) {
+            e.preventDefault();
+            const bankCode = document.getElementById('chargesBank').value;
+            const amount = parseFloat(document.getElementById('chargesAmount').value);
+            const desc = document.getElementById('chargesDesc').value;
+
+            try {
+                const res = await fetch('/api/banking/charges', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bank_account_code: bankCode,
+                        amount: amount,
+                        description: desc
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert("Bank charges posted successfully!");
+                    window.location.reload();
+                } else {
+                    alert("Error: " + data.message);
+                }
+            } catch (err) {
+                alert("Network error: " + err.message);
+            }
+        }
+    </script>
+</body>
+</html>

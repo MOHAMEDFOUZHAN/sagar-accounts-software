@@ -29,20 +29,20 @@
             </div>
 
             <div class="table-responsive">
-                <table class="custom-table">
+                <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Category ID</th>
-                            <th>Category Name</th>
-                            <th>Accounting Classification</th>
+                            <th style="width: 140px;">Category ID</th>
+                            <th style="width: 240px;">Category Name</th>
+                            <th style="width: 180px;">Accounting Classification</th>
                             <th>Description</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for c in categories %}
                         <tr>
-                            <td style="color: var(--text-muted);">#{{ c.id }}</td>
-                            <td style="font-weight: 600; color: white;">{{ c.name }}</td>
+                            <td><span class="table-code">#{{ c.id }}</span></td>
+                            <td style="font-weight: 600; color: #f1f5f9;">{{ c.name }}</td>
                             <td>
                                 {% if c.type == 'Revenue' %}
                                     <span class="badge badge-success">Revenue</span>
@@ -58,7 +58,7 @@
                                     <span class="badge badge-secondary">Equity</span>
                                 {% endif %}
                             </td>
-                            <td style="color: var(--text-muted);">{{ c.description or '-' }}</td>
+                            <td style="color: var(--text-muted);">{{ c.description or '—' }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

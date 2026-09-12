@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Accounting Backup & Disaster Recovery</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .backup-hero {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .hero-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+        .hero-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+        }
+        .icon-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .icon-green { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .icon-amber { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .icon-purple { background: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.3); }
+
+        .backup-table-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        .backup-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+        .backup-table th {
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--text-muted);
+            font-weight: 700;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            font-size: 0.72rem;
+            letter-spacing: 0.5px;
+        }
+        .backup-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+            color: #e2e8f0;
+            vertical-align: middle;
+        }
+        .backup-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .type-badge {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .badge-manual { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+        .badge-safety { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
+        .badge-scheduled { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        .modal-card {
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 550px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.6);
+        }
+        .modal-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-body {
+            padding: 24px;
+        }
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-title">
+                <h1>Accounting Data Backup & Disaster Recovery</h1>
+                <p>Live hot-backups, cryptographic SHA-256 verification, and atomic state-preserving restoration</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-secondary" onclick="checkIntegrity()">
+                    <i class="fas fa-stethoscope"></i> Check DB Integrity
+                </button>
+                <button class="btn btn-primary" onclick="openCreateModal()">
+                    <i class="fas fa-plus-circle"></i> Create New Backup
+                </button>
+            </div>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <div class="backup-hero">
+            <div class="hero-card">
+                <div class="hero-icon icon-blue">
+                    <i class="fas fa-database"></i>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Total Backups</div>
+                    <div style="font-size: 1.5rem; font-weight: 800; color: #f8fafc;">{{ backups|length }}</div>
+                </div>
+            </div>
+
+            <div class="hero-card">
+                <div class="hero-icon icon-green">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Storage Engine</div>
+                    <div style="font-size: 1.1rem; font-weight: 700; color: #10b981;">SQLite Hot Backup</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">Atomic Snapshot in WAL Mode</div>
+                </div>
+            </div>
+
+            <div class="hero-card">
+                <div class="hero-icon icon-purple">
+                    <i class="fas fa-fingerprint"></i>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Integrity Protection</div>
+                    <div style="font-size: 1.1rem; font-weight: 700; color: #a78bfa;">SHA-256 + TB Audit</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">Trial Balance Equilibrium Check</div>
+                </div>
+            </div>
+
+            <div class="hero-card">
+                <div class="hero-icon icon-amber">
+                    <i class="fas fa-history"></i>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Pre-Restore Safety</div>
+                    <div style="font-size: 1.1rem; font-weight: 700; color: #f59e0b;">Automatic Snapshot</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">Zero Data Loss Guarantee</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backup History Table -->
+        <div class="backup-table-container">
+            <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1rem; color: #f8fafc;">Preserved Accounting Backups</h3>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Retention policy keeps latest 30 snapshots</span>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="backup-table">
+                    <thead>
+                        <tr>
+                            <th>Backup Name</th>
+                            <th>Type</th>
+                            <th>Size</th>
+                            <th>Created Timestamp</th>
+                            <th>Verification Status</th>
+                            <th>Notes / Trigger</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if backups and backups|length > 0 %}
+                            {% for b in backups %}
+                                <tr>
+                                    <td>
+                                        <div style="font-weight: 600; color: #f8fafc; font-family: monospace; font-size: 0.85rem;">
+                                            <i class="fas fa-file-archive" style="color: var(--primary); margin-right: 6px;"></i>
+                                            {{ b.filename }}
+                                        </div>
+                                        <div style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace; max-width: 260px; overflow: hidden; text-overflow: ellipsis;">
+                                            SHA: {{ b.checksum_sha256 or 'Pending' }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if b.backup_type == 'safety_pre_restore' %}
+                                            <span class="type-badge badge-safety">Pre-Restore</span>
+                                        {% elif b.backup_type == 'scheduled' %}
+                                            <span class="type-badge badge-scheduled">Scheduled</span>
+                                        {% else %}
+                                            <span class="type-badge badge-manual">Manual</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="font-family: monospace; font-size: 0.85rem;">
+                                        {{ (b.file_size_bytes / 1024)|round(1) }} KB
+                                    </td>
+                                    <td style="color: var(--text-muted); font-size: 0.8rem; font-family: monospace;">
+                                        {{ b.created_at }}
+                                    </td>
+                                    <td>
+                                        {% if b.is_verified %}
+                                            <span class="badge badge-success" style="font-size: 0.7rem;">
+                                                <i class="fas fa-check-circle"></i> VERIFIED
+                                            </span>
+                                        {% else %}
+                                            <span class="badge badge-warning" style="font-size: 0.7rem;">
+                                                <i class="fas fa-clock"></i> UNVERIFIED
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="font-size: 0.8rem; color: var(--text-muted);">
+                                        {{ b.notes or 'No notes' }}
+                                    </td>
+                                    <td style="text-align: right; white-space: nowrap;">
+                                        <button class="btn btn-sm btn-secondary" onclick="verifyBackup('{{ b.filename }}')" title="Verify Integrity & Balance Equilibrium">
+                                            <i class="fas fa-check-double"></i> Verify
+                                        </button>
+                                        {% if session.get('role', 'accountant') == 'admin' %}
+                                            <button class="btn btn-sm btn-danger" onclick="promptRestore('{{ b.filename }}')" title="Restore Database From This Backup" style="margin-left: 6px;">
+                                                <i class="fas fa-history"></i> Restore
+                                            </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                                    <i class="fas fa-database" style="font-size: 2.5rem; margin-bottom: 12px; display: block; opacity: 0.3;"></i>
+                                    No database backups created yet. Click "Create New Backup" to take an initial snapshot.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Backup Modal -->
+    <div class="modal-overlay" id="createModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 style="margin: 0; font-size: 1.1rem; color: #f8fafc;">Create Accounting Hot Backup</h3>
+                <button onclick="closeModals()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0;">
+                    Creates an atomic point-in-time snapshot of the active accounting database without interrupting live transaction postings.
+                </p>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Backup Notes / Reason</label>
+                    <input type="text" id="backupNotes" class="filter-input" style="width: 100%;" placeholder="e.g., Pre-reconciliation snapshot, Month-end close">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModals()">Cancel</button>
+                <button class="btn btn-primary" id="btnCreateConfirm" onclick="submitCreateBackup()">Create Backup Now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restore Confirmation Modal -->
+    <div class="modal-overlay" id="restoreModal">
+        <div class="modal-card" style="border-color: rgba(239, 68, 68, 0.4);">
+            <div class="modal-header" style="border-color: rgba(239, 68, 68, 0.3);">
+                <h3 style="margin: 0; font-size: 1.1rem; color: #f87171;"><i class="fas fa-exclamation-triangle"></i> Confirm Database Restore</h3>
+                <button onclick="closeModals()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                    <div style="font-weight: 700; color: #f87171; font-size: 0.9rem; margin-bottom: 4px;">CRITICAL OPERATION</div>
+                    <div style="font-size: 0.8rem; color: #fca5a5;">
+                        Restoring will replace the active database with this snapshot. An automatic safety snapshot will be taken immediately prior to restore.
+                    </div>
+                </div>
+                <div style="margin-bottom: 14px;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Target Backup File</div>
+                    <div style="font-weight: 700; color: #f8fafc; font-family: monospace;" id="restoreTargetFilename">—</div>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Audit Reason (Mandatory)</label>
+                    <input type="text" id="restoreReason" class="filter-input" style="width: 100%;" placeholder="e.g., Disaster recovery following server crash">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModals()">Cancel</button>
+                <button class="btn btn-danger" id="btnRestoreConfirm" onclick="submitRestoreBackup()">Confirm Restore</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedRestoreFile = null;
+
+        function openCreateModal() {
+            document.getElementById('backupNotes').value = '';
+            document.getElementById('createModal').style.display = 'flex';
+        }
+
+        function promptRestore(filename) {
+            selectedRestoreFile = filename;
+            document.getElementById('restoreTargetFilename').innerText = filename;
+            document.getElementById('restoreReason').value = '';
+            document.getElementById('restoreModal').style.display = 'flex';
+        }
+
+        function closeModals() {
+            document.getElementById('createModal').style.display = 'none';
+            document.getElementById('restoreModal').style.display = 'none';
+        }
+
+        async function submitCreateBackup() {
+            const notes = document.getElementById('backupNotes').value.trim();
+            const btn = document.getElementById('btnCreateConfirm');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+
+            try {
+                const res = await fetch('/api/backups/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notes: notes, backup_type: 'manual' })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('Backup created successfully: ' + data.filename);
+                    window.location.reload();
+                } else {
+                    alert('Backup failed: ' + (data.message || 'Unknown error'));
+                }
+            } catch (err) {
+                alert('Network error during backup creation: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Create Backup Now';
+                closeModals();
+            }
+        }
+
+        async function verifyBackup(filename) {
+            try {
+                const res = await fetch('/api/backups/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename: filename })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert(`Verification Result for ${filename}:\n\n` +
+                          `• PRAGMA Integrity: ${data.integrity_check}\n` +
+                          `• Trial Balance Equilibrium: ${data.trial_balance_balanced ? 'BALANCED (Debit = Credit)' : 'DISCREPANCY'}\n` +
+                          `• Debit: ₹${data.total_debit} | Credit: ₹${data.total_credit}\n` +
+                          `• SHA-256 Checksum: MATCHED`);
+                    window.location.reload();
+                } else {
+                    alert('Verification failed: ' + (data.message || 'Corrupted or invalid'));
+                }
+            } catch (err) {
+                alert('Error running backup verification: ' + err.message);
+            }
+        }
+
+        async function submitRestoreBackup() {
+            if (!selectedRestoreFile) return;
+            const reason = document.getElementById('restoreReason').value.trim();
+            if (!reason) {
+                alert('Please enter a valid audit reason before restoring.');
+                return;
+            }
+
+            const btn = document.getElementById('btnRestoreConfirm');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Restoring Database...';
+
+            try {
+                const res = await fetch('/api/backups/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename: selectedRestoreFile, reason: reason })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('Database restored successfully!\nSafety snapshot saved to: ' + data.pre_restore_safety_backup);
+                    window.location.reload();
+                } else {
+                    alert('Database restore failed: ' + (data.message || 'Server error'));
+                }
+            } catch (err) {
+                alert('Network error during database restoration: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Confirm Restore';
+                closeModals();
+            }
+        }
+
+        async function checkIntegrity() {
+            try {
+                const res = await fetch('/api/system/integrity-check');
+                const data = await res.json();
+                if (data.status === 'success') {
+                    const rep = data.report;
+                    alert(`Database Integrity Audit Report:\n\n` +
+                          `• Status: ${rep.status}\n` +
+                          `• Passed Checks: ${rep.passed_count}/${rep.total_checks}\n` +
+                          `• Foreign Key Violations: ${rep.checks.foreign_keys.violations}\n` +
+                          `• Unbalanced Journal Vouchers: ${rep.checks.journal_balancing.unbalanced_entries}\n` +
+                          `• Orphan Lines: ${rep.checks.orphan_journal_lines.orphan_lines}\n` +
+                          `• Duplicate Postings: ${rep.checks.duplicate_source_postings.duplicate_references}`);
+                } else {
+                    alert('Integrity check failed: ' + data.message);
+                }
+            } catch (err) {
+                alert('Integrity check network error: ' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>

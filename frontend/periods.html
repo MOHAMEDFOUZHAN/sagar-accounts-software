@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Accounting Periods & Financial Year</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .period-status-badge {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .status-open {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .status-closed {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        .status-locked {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .fy-selector-tab {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .fy-selector-tab.active {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        .btn-action-sm {
+            padding: 4px 10px;
+            font-size: 0.75rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: opacity 0.2s;
+        }
+        .btn-action-sm:hover {
+            opacity: 0.85;
+        }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-title">
+                <h1>Accounting Periods & Financial Year</h1>
+                <p>Governs transaction eligibility, backdated entry controls, and financial close safeguards</p>
+            </div>
+            <button onclick="showCreateFYModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Financial Year
+            </button>
+        </div>
+
+        <!-- Safeguard Rule Banner -->
+        <div class="formula-card" style="margin-bottom: 25px;">
+            <i class="fas fa-lock"></i>
+            <strong>Financial Control Rule:</strong> Transactions can only be posted into <code>OPEN</code> periods. When a period is closed, historical balances are permanently safeguarded from alteration. Reopening requires authorized supervisor privilege and generates an irreversible audit trail.
+        </div>
+
+        <!-- Financial Year Tabs -->
+        <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
+            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-right: 8px;">FINANCIAL YEARS:</span>
+            {% for fy in financial_years %}
+                <button class="fy-selector-tab {% if active_fy and active_fy.id == fy.id %}active{% endif %}"
+                        onclick="window.location.href='/periods?fy_id={{ fy.id }}'">
+                    <i class="fas fa-calendar-check"></i> {{ fy.name }} ({{ fy.status }})
+                </button>
+            {% endfor %}
+        </div>
+
+        <!-- Active Financial Year Overview -->
+        {% if active_fy %}
+        <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 25px;">
+            <div class="kpi-card" style="border-top: 3px solid var(--primary);">
+                <div class="kpi-title">Current Financial Year</div>
+                <div class="kpi-value" style="font-size: 1.3rem;">{{ active_fy.name }}</div>
+                <span class="kpi-badge badge-info">{{ active_fy.start_date }} → {{ active_fy.end_date }}</span>
+            </div>
+            <div class="kpi-card" style="border-top: 3px solid var(--success);">
+                <div class="kpi-title">FY Status</div>
+                <div class="kpi-value" style="font-size: 1.3rem; color: {% if active_fy.status == 'OPEN' %}var(--success){% else %}var(--warning){% endif %};">
+                    {{ active_fy.status }}
+                </div>
+                <span class="kpi-badge badge-success">Convention: April 1 → March 31</span>
+            </div>
+            <div class="kpi-card" style="border-top: 3px solid var(--accent);">
+                <div class="kpi-title">Total Periods</div>
+                <div class="kpi-value" style="font-size: 1.3rem;">{{ periods|length }} Months</div>
+                <span class="kpi-badge badge-accent">12 Monthly Accounting Slices</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Accounting Periods Table -->
+        <div class="glass-panel" style="margin-bottom: 30px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3><i class="fas fa-calendar-alt"></i> Monthly Periods for {{ active_fy.name if active_fy else '' }}</h3>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Strict Server-side Validation Enforced</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 70px;">#</th>
+                            <th>Period Name</th>
+                            <th>Date Range</th>
+                            <th>Status</th>
+                            <th>Closed / Locked Info</th>
+                            <th style="width: 250px; text-align: right;">Control Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if periods %}
+                            {% for p in periods %}
+                            <tr>
+                                <td><span style="color: var(--text-muted); font-weight: 700;">M{{ p.period_number }}</span></td>
+                                <td><strong style="color: #f8fafc;">{{ p.period_name }}</strong></td>
+                                <td style="font-size: 0.85rem; color: var(--text-muted);">
+                                    {{ p.start_date }} &nbsp;<i class="fas fa-arrow-right" style="font-size: 0.7rem;"></i>&nbsp; {{ p.end_date }}
+                                </td>
+                                <td>
+                                    {% if p.status == 'OPEN' %}
+                                        <span class="period-status-badge status-open"><i class="fas fa-check-circle"></i> OPEN</span>
+                                    {% elif p.status == 'CLOSED' %}
+                                        <span class="period-status-badge status-closed"><i class="fas fa-lock"></i> CLOSED</span>
+                                    {% else %}
+                                        <span class="period-status-badge status-locked"><i class="fas fa-shield-alt"></i> LOCKED</span>
+                                    {% endif %}
+                                </td>
+                                <td style="font-size: 0.8rem; color: var(--text-muted);">
+                                    {% if p.status == 'CLOSED' %}
+                                        Closed at: {{ p.closed_at or 'N/A' }} by {{ p.closed_by or 'Admin' }}
+                                    {% elif p.status == 'LOCKED' %}
+                                        Locked: {{ p.locked_at or 'N/A' }} ({{ p.lock_reason or 'Year-end audit' }})
+                                    {% else %}
+                                        <span style="color: var(--success);"><i class="fas fa-door-open"></i> Accepting Postings</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: right;">
+                                    <button class="btn-action-sm btn-secondary" onclick="viewPeriodDetails({{ p|tojson }})" title="View Details">
+                                        <i class="fas fa-eye"></i> Details
+                                    </button>
+
+                                    {% if p.status == 'OPEN' %}
+                                        <button class="btn-action-sm" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b;" onclick="promptClosePeriod({{ p.id }}, '{{ p.period_name }}')">
+                                            <i class="fas fa-lock"></i> Close
+                                        </button>
+                                        <button class="btn-action-sm" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;" onclick="promptLockPeriod({{ p.id }}, '{{ p.period_name }}')">
+                                            <i class="fas fa-shield-alt"></i> Lock
+                                        </button>
+                                    {% elif p.status == 'CLOSED' %}
+                                        <button class="btn-action-sm" style="background: rgba(16, 185, 129, 0.2); color: #10b981;" onclick="promptReopenPeriod({{ p.id }}, '{{ p.period_name }}')">
+                                            <i class="fas fa-door-open"></i> Reopen
+                                        </button>
+                                        <button class="btn-action-sm" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;" onclick="promptLockPeriod({{ p.id }}, '{{ p.period_name }}')">
+                                            <i class="fas fa-shield-alt"></i> Lock
+                                        </button>
+                                    {% elif p.status == 'LOCKED' %}
+                                        <button class="btn-action-sm" style="background: rgba(16, 185, 129, 0.2); color: #10b981;" onclick="promptUnlockPeriod({{ p.id }}, '{{ p.period_name }}')">
+                                            <i class="fas fa-unlock"></i> Unlock
+                                        </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 30px; color: var(--text-muted);">
+                                    No periods found for this Financial Year.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Recent Audit Trail for Period Controls -->
+        <div class="glass-panel">
+            <div class="panel-header">
+                <h3><i class="fas fa-history"></i> Recent Financial Control Audit Log</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Target Entity</th>
+                            <th>Reason / Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if audit_logs %}
+                            {% for log in audit_logs %}
+                            <tr>
+                                <td style="font-size: 0.8rem; color: var(--text-muted);">{{ log.created_at }}</td>
+                                <td><strong style="color: #f1f5f9;">{{ log.user }}</strong></td>
+                                <td>
+                                    <span class="badge badge-info" style="font-size: 0.75rem;">{{ log.action }}</span>
+                                </td>
+                                <td>{{ log.entity_type }} #{{ log.entity_id or 'N/A' }}</td>
+                                <td style="color: var(--text-muted); font-size: 0.85rem;">{{ log.reason or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                                    No financial control actions logged yet.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Period Action Modal -->
+    <div id="periodActionModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; width: 100%; max-width: 480px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+            <h3 id="periodModalTitle" style="margin-top: 0; margin-bottom: 12px; color: #f8fafc;">Period Action</h3>
+            <p id="periodModalDesc" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 16px;"></p>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">Reason / Authorization Note *</label>
+                <textarea id="periodActionReason" rows="3" class="form-control" style="width: 100%; box-sizing: border-box; background: var(--bg-dark); border: 1px solid var(--border-color); color: #fff; border-radius: 6px; padding: 10px;" placeholder="Provide audit reason for this action..."></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="closePeriodModal()">Cancel</button>
+                <button type="button" id="periodModalSubmitBtn" class="btn btn-primary" onclick="submitPeriodAction()">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPeriodAction = { periodId: null, actionType: null };
+
+        function viewPeriodDetails(period) {
+            showRecordDetails({
+                title: 'Accounting Period Details',
+                subtitle: `${period.period_name} (Period #${period.period_number})`,
+                icon: 'fas fa-calendar-alt',
+                iconColor: period.status === 'OPEN' ? 'var(--success)' : (period.status === 'CLOSED' ? 'var(--warning)' : 'var(--danger)'),
+                badge: {
+                    text: period.status,
+                    class: period.status === 'OPEN' ? 'badge-success' : (period.status === 'CLOSED' ? 'badge-warning' : 'badge-danger')
+                },
+                sections: [
+                    {
+                        title: 'Period Scheduling',
+                        icon: 'fas fa-clock',
+                        fields: [
+                            { label: 'Period ID', value: period.id },
+                            { label: 'Financial Year ID', value: period.financial_year_id },
+                            { label: 'Start Date', value: period.start_date },
+                            { label: 'End Date', value: period.end_date },
+                            { label: 'Period Number', value: `Month ${period.period_number}` },
+                            { label: 'Status', value: period.status }
+                        ]
+                    },
+                    {
+                        title: 'Control & Locking Status',
+                        icon: 'fas fa-shield-alt',
+                        fields: [
+                            { label: 'Closed At', value: period.closed_at || 'Not closed' },
+                            { label: 'Closed By', value: period.closed_by || '-' },
+                            { label: 'Locked At', value: period.locked_at || 'Not locked' },
+                            { label: 'Locked By', value: period.locked_by || '-' },
+                            { label: 'Lock Reason', value: period.lock_reason || 'N/A' }
+                        ]
+                    }
+                ]
+            });
+        }
+
+        function promptClosePeriod(id, name) {
+            currentPeriodAction = { periodId: id, actionType: 'close' };
+            document.getElementById('periodModalTitle').textContent = `Close Period: ${name}`;
+            document.getElementById('periodModalDesc').textContent = 'Closing this period prevents any further standard transactions from being posted on dates within this period range.';
+            document.getElementById('periodActionReason').value = 'Month-end accounting close completed.';
+            document.getElementById('periodModalSubmitBtn').className = 'btn btn-primary';
+            document.getElementById('periodModalSubmitBtn').textContent = 'Close Period';
+            document.getElementById('periodActionModal').style.display = 'flex';
+        }
+
+        function promptReopenPeriod(id, name) {
+            currentPeriodAction = { periodId: id, actionType: 'reopen' };
+            document.getElementById('periodModalTitle').textContent = `Reopen Period: ${name}`;
+            document.getElementById('periodModalDesc').textContent = 'Reopening a closed period requires administrative justification and will be permanently recorded in the audit trail.';
+            document.getElementById('periodActionReason').value = '';
+            document.getElementById('periodModalSubmitBtn').className = 'btn btn-primary';
+            document.getElementById('periodModalSubmitBtn').textContent = 'Reopen Period';
+            document.getElementById('periodActionModal').style.display = 'flex';
+        }
+
+        function promptLockPeriod(id, name) {
+            currentPeriodAction = { periodId: id, actionType: 'lock' };
+            document.getElementById('periodModalTitle').textContent = `Strict Lock Period: ${name}`;
+            document.getElementById('periodModalDesc').textContent = 'Locking is a high-security safeguard that forbids all entries and corrections without unlocking first.';
+            document.getElementById('periodActionReason').value = 'Year-end statutory audit lock.';
+            document.getElementById('periodModalSubmitBtn').className = 'btn btn-danger';
+            document.getElementById('periodModalSubmitBtn').textContent = 'Lock Period';
+            document.getElementById('periodActionModal').style.display = 'flex';
+        }
+
+        function promptUnlockPeriod(id, name) {
+            currentPeriodAction = { periodId: id, actionType: 'unlock' };
+            document.getElementById('periodModalTitle').textContent = `Unlock Period: ${name}`;
+            document.getElementById('periodModalDesc').textContent = 'Unlocking reverts the period to CLOSED status, permitting authorized adjustments.';
+            document.getElementById('periodActionReason').value = 'Audit adjustments authorized.';
+            document.getElementById('periodModalSubmitBtn').className = 'btn btn-primary';
+            document.getElementById('periodModalSubmitBtn').textContent = 'Unlock Period';
+            document.getElementById('periodActionModal').style.display = 'flex';
+        }
+
+        function closePeriodModal() {
+            document.getElementById('periodActionModal').style.display = 'none';
+        }
+
+        async function submitPeriodAction() {
+            const reason = document.getElementById('periodActionReason').value.trim();
+            if (!reason) {
+                alert('Please enter an audit reason.');
+                return;
+            }
+
+            const url = `/api/periods/${currentPeriodAction.actionType}`;
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        period_id: currentPeriodAction.periodId,
+                        reason: reason
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.status === 'success') {
+                    closePeriodModal();
+                    window.location.reload();
+                } else {
+                    alert('Action Failed: ' + (data.message || data.error || 'Server error'));
+                }
+            } catch (e) {
+                alert('Network error: ' + e.message);
+            }
+        }
+
+        function showCreateFYModal() {
+            const name = prompt('Enter Financial Year Name (e.g., 2028-29):', '2028-29');
+            if (!name) return;
+            const startDate = prompt('Enter Start Date (YYYY-MM-DD):', '2028-04-01');
+            if (!startDate) return;
+            const endDate = prompt('Enter End Date (YYYY-MM-DD):', '2029-03-31');
+            if (!endDate) return;
+
+            fetch('/api/financial-years/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, start_date: startDate, end_date: endDate })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'success') {
+                    alert('Financial Year and 12 monthly periods created successfully!');
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (d.message || d.error));
+                }
+            })
+            .catch(err => alert('Network error: ' + err.message));
+        }
+    </script>
+</body>
+</html>

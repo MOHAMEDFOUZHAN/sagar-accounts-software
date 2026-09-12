@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Owner Equity (Capital & Drawings)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-title">
+                <h1>Owner Equity, Capital & Drawings</h1>
+                <p>Owner capital contributions, partner drawings, and accumulated retained earnings</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="openCapitalModal()" class="btn btn-primary" style="font-size: 0.85rem;">
+                    <i class="fas fa-plus-circle"></i> Capital Contribution
+                </button>
+                <button onclick="openDrawingsModal()" class="btn btn-secondary" style="font-size: 0.85rem;">
+                    <i class="fas fa-hand-holding-usd"></i> Owner Drawings
+                </button>
+            </div>
+        </div>
+
+        <div class="formula-card" style="margin-bottom: 25px;">
+            <i class="fas fa-coins"></i>
+            <strong>Equity Formula:</strong> Total Equity = Owner Capital Contributions (3010) [ - ] Owner Personal Drawings (3020) [ + ] Retained Earnings & Net Profit. Drawings do not affect P&L operating expenses.
+        </div>
+
+        <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 25px;">
+            <div class="kpi-card" style="border-top: 3px solid var(--primary);">
+                <div class="kpi-icon profit"><i class="fas fa-wallet"></i></div>
+                <div class="kpi-title">Net Owner Equity (Book Value)</div>
+                <div class="kpi-value" style="color: #38bdf8;">₹{{ "{:,.2f}".format(total_equity) }}</div>
+                <span class="kpi-badge badge-success">Capital + Earnings - Drawings</span>
+            </div>
+        </div>
+
+        <div class="glass-panel">
+            <div class="panel-header">
+                <h3><i class="fas fa-layer-group"></i> Equity Composition & Ledger Accounts</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 140px;">Account Code</th>
+                            <th>Equity Component</th>
+                            <th class="col-currency" style="width: 180px;">Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if equity_items %}
+                            {% for item in equity_items %}
+                            <tr>
+                                <td><span class="table-code">{{ item.code }}</span></td>
+                                <td><strong style="color: #f1f5f9;">{{ item.name }}</strong></td>
+                                <td class="col-currency" style="font-weight: 700; color: {% if item.amount >= 0 %}#34d399{% else %}#f87171{% endif %}; font-size: 0.95rem;">
+                                    ₹{{ "{:,.2f}".format(item.amount) }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center" style="color: var(--text-muted); padding: 36px 20px;">
+                                    <i class="fas fa-coins" style="font-size: 2rem; display: block; margin-bottom: 10px; opacity: 0.4;"></i>
+                                    No equity records found.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="2"><strong>TOTAL NET OWNER EQUITY</strong></td>
+                            <td class="col-currency" style="color: var(--success); font-size: 1.15rem; font-weight: 800;">
+                                ₹{{ "{:,.2f}".format(total_equity) }}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Capital Contribution Modal -->
+    <div id="capitalModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 480px; margin: 20px; border-color: #3b82f6;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;"><i class="fas fa-plus-circle" style="color: #60a5fa;"></i> Capital Contribution</h3>
+                <button onclick="closeCapitalModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form onsubmit="submitCapital(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Partner / Investor Name</label>
+                    <input type="text" id="capInvestor" class="form-control" placeholder="e.g. Sagar / Managing Partner" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Contribution Amount (₹) *</label>
+                    <input type="number" step="0.01" id="capAmount" class="form-control" placeholder="0.00" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Deposit Into</label>
+                    <select id="capMethod" class="form-select">
+                        <option value="Bank Transfer">Bank Current Account (1020)</option>
+                        <option value="Cash">Cash on Hand (1010)</option>
+                        <option value="UPI">UPI & Digital Clearing (1030)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Contribution Date</label>
+                    <input type="date" id="capDate" class="form-control" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="form-label">Narration</label>
+                    <input type="text" id="capNarration" class="form-control" placeholder="e.g. Additional capital infusion">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Post Capital Contribution</button>
+                    <button type="button" onclick="closeCapitalModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Owner Drawings Modal -->
+    <div id="drawingsModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 480px; margin: 20px; border-color: #f87171;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;"><i class="fas fa-hand-holding-usd" style="color: #f87171;"></i> Owner Personal Drawings</h3>
+                <button onclick="closeDrawingsModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form onsubmit="submitDrawings(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Partner / Owner Name</label>
+                    <input type="text" id="drawOwner" class="form-control" placeholder="e.g. Sagar / Managing Partner" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Withdrawal Amount (₹) *</label>
+                    <input type="number" step="0.01" id="drawAmount" class="form-control" placeholder="0.00" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Withdraw From</label>
+                    <select id="drawMethod" class="form-select">
+                        <option value="Cash">Cash on Hand (1010)</option>
+                        <option value="Bank Transfer">Bank Current Account (1020)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Withdrawal Date</label>
+                    <input type="date" id="drawDate" class="form-control" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="form-label">Narration / Purpose</label>
+                    <input type="text" id="drawNarration" class="form-control" placeholder="e.g. Personal household withdrawal">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1; background: #ef4444; border-color: #ef4444;">Record Drawings</button>
+                    <button type="button" onclick="closeDrawingsModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (document.getElementById('capDate')) document.getElementById('capDate').value = todayStr;
+        if (document.getElementById('drawDate')) document.getElementById('drawDate').value = todayStr;
+
+        function openCapitalModal() { document.getElementById('capitalModal').style.display = 'flex'; }
+        function closeCapitalModal() { document.getElementById('capitalModal').style.display = 'none'; }
+        function openDrawingsModal() { document.getElementById('drawingsModal').style.display = 'flex'; }
+        function closeDrawingsModal() { document.getElementById('drawingsModal').style.display = 'none'; }
+
+        async function submitCapital(e) {
+            e.preventDefault();
+            const payload = {
+                investor_name: document.getElementById('capInvestor').value,
+                amount: parseFloat(document.getElementById('capAmount').value),
+                payment_method: document.getElementById('capMethod').value,
+                date: document.getElementById('capDate').value,
+                narration: document.getElementById('capNarration').value
+            };
+
+            try {
+                const res = await fetch('/api/equity/contribute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('Capital contribution posted successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
+
+        async function submitDrawings(e) {
+            e.preventDefault();
+            const payload = {
+                owner_name: document.getElementById('drawOwner').value,
+                amount: parseFloat(document.getElementById('drawAmount').value),
+                payment_method: document.getElementById('drawMethod').value,
+                date: document.getElementById('drawDate').value,
+                narration: document.getElementById('drawNarration').value
+            };
+
+            try {
+                const res = await fetch('/api/equity/drawings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('Owner drawings recorded successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>

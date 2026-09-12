@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Balance Sheet Statement</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .statement-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .statement-table th, .statement-table td {
+            padding: 11px 16px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .statement-header {
+            background: rgba(15, 23, 42, 0.75);
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            font-size: 0.82rem;
+            letter-spacing: 0.05em;
+        }
+        .statement-total {
+            background: rgba(255, 255, 255, 0.04);
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+        .statement-highlight {
+            background: rgba(99, 102, 241, 0.14);
+            font-weight: 800;
+            font-size: 1.05rem;
+            border-top: 2px solid var(--primary);
+            border-bottom: 2px solid var(--primary);
+        }
+        @media print {
+            .sidebar, .period-filter-bar, .top-bar button, .quick-action-btn, .formula-card {
+                display: none !important;
+            }
+            .main-content {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <!-- Top Bar -->
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-title">
+                <h1>Statement of Financial Position (Balance Sheet)</h1>
+                <p>Audited assets, liabilities, and owner equity synchronized with real-time accounting ledgers</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="window.print()" class="btn btn-secondary">
+                    <i class="fas fa-print"></i> Print Balance Sheet
+                </button>
+            </div>
+        </div>
+
+        <!-- Period Filter Bar -->
+        <div class="period-filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-right: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fas fa-calendar-alt"></i> Statement Period:
+            </span>
+            <a href="/balance-sheet?filter=all" class="period-pill {% if current_filter == 'all' or not current_filter %}active{% endif %}">All Time</a>
+            <a href="/balance-sheet?filter=today" class="period-pill {% if current_filter == 'today' %}active{% endif %}">Today</a>
+            <a href="/balance-sheet?filter=this_month" class="period-pill {% if current_filter == 'this_month' %}active{% endif %}">This Month</a>
+            <a href="/balance-sheet?filter=this_year" class="period-pill {% if current_filter == 'this_year' %}active{% endif %}">This FY</a>
+
+            <form method="GET" action="/balance-sheet" style="display: inline-flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap;">
+                <input type="hidden" name="filter" value="custom">
+
+                {% if financial_years %}
+                <select name="fy_id" class="form-control" style="padding: 4px 8px; font-size: 0.8rem; height: auto; max-width: 140px;" onchange="this.form.submit()">
+                    <option value="">-- All FYs --</option>
+                    {% for fy in financial_years %}
+                    <option value="{{ fy.id }}" {% if selected_fy_id|string == fy.id|string %}selected{% endif %}>{{ fy.year_name }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+
+                {% if accounting_periods %}
+                <select name="period_id" class="form-control" style="padding: 4px 8px; font-size: 0.8rem; height: auto; max-width: 150px;" onchange="this.form.submit()">
+                    <option value="">-- All Periods --</option>
+                    {% for p in accounting_periods %}
+                    <option value="{{ p.id }}" {% if selected_period_id|string == p.id|string %}selected{% endif %}>{{ p.period_name }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+
+                <span style="color: var(--text-muted); font-size: 0.8rem;">As of:</span>
+                <input type="date" name="end_date" class="form-control" style="padding: 4px 8px; font-size: 0.8rem; height: auto;" value="{{ end_date or as_of_date }}">
+                <button type="submit" class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;">Update</button>
+            </form>
+        </div>
+
+        <!-- Accounting Equation Banner -->
+        {% if bs.is_balanced %}
+        <div class="balance-check-banner status-balanced">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-check-circle" style="font-size: 1.3rem;"></i>
+                <div>
+                    <div><strong>Accounting Equation: BALANCE SHEET IN PERFECT BALANCE</strong></div>
+                    <div style="font-size: 0.8rem; opacity: 0.85;">Total Assets exactly equal Total Liabilities + Owner Equity (including P&L Net Profit). Zero artificial balancing used.</div>
+                </div>
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 800;">
+                Assets ₹{{ "{:,.2f}".format(bs.assets.total_assets) }} = Liab + Equity ₹{{ "{:,.2f}".format(bs.total_liabilities_and_equity) }}
+            </div>
+        </div>
+        {% else %}
+        <div class="balance-check-banner status-unbalanced">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 1.3rem;"></i>
+                <div>
+                    <div><strong>Accounting Warning: BALANCE SHEET OUT OF BALANCE</strong></div>
+                    <div style="font-size: 0.8rem; opacity: 0.85;">Discrepancy detected between Total Assets and Total Liabilities + Equity. Check unposted journal vouchers or opening inventory valuation.</div>
+                </div>
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 800; color: #f87171;">
+                Diff: ₹{{ "{:,.2f}".format((bs.assets.total_assets - bs.total_liabilities_and_equity)|abs) }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Top 3 Key KPI Cards -->
+        <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 25px;">
+            <div class="kpi-card" style="border-top: 3px solid var(--accent);">
+                <div class="kpi-icon revenue"><i class="fas fa-landmark"></i></div>
+                <div class="kpi-title">Total Business Assets</div>
+                <div class="kpi-value" style="color: #38bdf8;">₹{{ "{:,.2f}".format(bs.assets.total_assets) }}</div>
+                <span class="kpi-badge badge-info">Fixed + Current + Other Assets</span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid var(--danger);">
+                <div class="kpi-icon payable"><i class="fas fa-credit-card"></i></div>
+                <div class="kpi-title">Total Liabilities</div>
+                <div class="kpi-value" style="color: #f87171;">₹{{ "{:,.2f}".format(bs.liabilities.total_liabilities) }}</div>
+                <span class="kpi-badge badge-danger">Payables, Loans & Statutory Taxes</span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid var(--success);">
+                <div class="kpi-icon profit"><i class="fas fa-coins"></i></div>
+                <div class="kpi-title">Total Owner Equity (Book Value)</div>
+                <div class="kpi-value" style="color: #34d399;">₹{{ "{:,.2f}".format(bs.equity.total_equity) }}</div>
+                <span class="kpi-badge badge-success">Capital + Net Profit - Drawings</span>
+            </div>
+        </div>
+
+        <!-- Balance Sheet Layout: Side-by-Side Assets vs Liabilities & Equity -->
+        <div class="grid-2-split" style="gap: 20px;">
+            <!-- LEFT COLUMN: ASSETS -->
+            <div class="glass-panel" style="margin-bottom: 0;">
+                <div class="panel-header" style="border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 12px; margin-bottom: 15px;">
+                    <h3 style="color: #38bdf8;"><i class="fas fa-landmark"></i> ASSETS</h3>
+                    <span class="badge badge-info">Resources Owned</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="statement-table">
+                        <!-- 1. FIXED ASSETS -->
+                        <tr class="statement-header">
+                            <td colspan="2"><i class="fas fa-city"></i> I. FIXED / CAPITAL ASSETS</td>
+                            <td style="text-align: right; width: 140px;">AMOUNT (₹)</td>
+                        </tr>
+                        {% if bs.assets.fixed_assets %}
+                            {% for item in bs.assets.fixed_assets %}
+                            <tr>
+                                <td style="width: 110px;"><span class="table-code">{{ item.code }}</span></td>
+                                <td><strong style="color: #f1f5f9;">{{ item.name }}</strong></td>
+                                <td style="text-align: right;">
+                                    <span class="drilldown-link"
+                                          onclick="showDrilldown('{{ item.code }}', '{{ item.name|replace('\'', '\\\'') }}', '{{ start_date }}', '{{ end_date }}')"
+                                          title="View contributing ledger entries">
+                                        ₹{{ "{:,.2f}".format(item.amount) }} <i class="fas fa-search-plus"></i>
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3" style="color: var(--text-muted); padding: 10px 16px;">No fixed assets recorded.</td>
+                            </tr>
+                        {% endif %}
+                        <tr class="statement-total">
+                            <td colspan="2">TOTAL FIXED ASSETS</td>
+                            <td style="text-align: right; color: #38bdf8;">₹{{ "{:,.2f}".format(bs.assets.total_fixed_assets) }}</td>
+                        </tr>
+
+                        <!-- 2. CURRENT ASSETS -->
+                        <tr class="statement-header">
+                            <td colspan="2"><i class="fas fa-wallet"></i> II. CURRENT ASSETS</td>
+                            <td style="text-align: right;">AMOUNT (₹)</td>
+                        </tr>
+                        {% if bs.assets.current_assets %}
+                            {% for item in bs.assets.current_assets %}
+                            <tr>
+                                <td><span class="table-code">{{ item.code }}</span></td>
+                                <td>
+                                    <strong style="color: #f1f5f9;">{{ item.name }}</strong>
+                                    {% if item.code == '1050' %}
+                                        <span class="badge badge-subtle-accent" style="margin-left: 6px; font-size: 0.68rem;">Live Valuation</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: right;">
+                                    <span class="drilldown-link"
+                                          onclick="showDrilldown('{{ item.code }}', '{{ item.name|replace('\'', '\\\'') }}', '{{ start_date }}', '{{ end_date }}')"
+                                          title="View contributing ledger entries">
+                                        ₹{{ "{:,.2f}".format(item.amount) }} <i class="fas fa-search-plus"></i>
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3" style="color: var(--text-muted); padding: 10px 16px;">No current assets recorded.</td>
+                            </tr>
+                        {% endif %}
+                        <tr class="statement-total">
+                            <td colspan="2">TOTAL CURRENT ASSETS</td>
+                            <td style="text-align: right; color: #38bdf8;">₹{{ "{:,.2f}".format(bs.assets.total_current_assets) }}</td>
+                        </tr>
+
+                        <!-- 3. OTHER ASSETS -->
+                        {% if bs.assets.other_assets %}
+                        <tr class="statement-header">
+                            <td colspan="2"><i class="fas fa-folder-plus"></i> III. OTHER ASSETS</td>
+                            <td style="text-align: right;">AMOUNT (₹)</td>
+                        </tr>
+                            {% for item in bs.assets.other_assets %}
+                            <tr>
+                                <td><span class="table-code">{{ item.code }}</span></td>
+                                <td><strong style="color: #f1f5f9;">{{ item.name }}</strong></td>
+                                <td style="text-align: right;">
+                                    <span class="drilldown-link"
+                                          onclick="showDrilldown('{{ item.code }}', '{{ item.name|replace('\'', '\\\'') }}', '{{ start_date }}', '{{ end_date }}')"
+                                          title="View contributing ledger entries">
+                                        ₹{{ "{:,.2f}".format(item.amount) }} <i class="fas fa-search-plus"></i>
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        <tr class="statement-total">
+                            <td colspan="2">TOTAL OTHER ASSETS</td>
+                            <td style="text-align: right; color: #38bdf8;">₹{{ "{:,.2f}".format(bs.assets.total_other_assets) }}</td>
+                        </tr>
+                        {% endif %}
+
+                        <!-- TOTAL ASSETS -->
+                        <tr class="statement-highlight" style="background: rgba(56, 189, 248, 0.15); border-top: 2px solid var(--accent); border-bottom: 2px solid var(--accent);">
+                            <td colspan="2" style="font-weight: 800; font-size: 1.05rem; color: white;">
+                                TOTAL ASSETS (A)
+                            </td>
+                            <td style="text-align: right; font-weight: 800; font-size: 1.15rem; color: #38bdf8;">
+                                ₹{{ "{:,.2f}".format(bs.assets.total_assets) }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: LIABILITIES & OWNER EQUITY -->
+            <div class="glass-panel" style="margin-bottom: 0;">
+                <div class="panel-header" style="border-bottom: 1px solid rgba(248, 113, 113, 0.2); padding-bottom: 12px; margin-bottom: 15px;">
+                    <h3 style="color: #f87171;"><i class="fas fa-balance-scale"></i> LIABILITIES & OWNER EQUITY</h3>
+                    <span class="badge badge-danger">Obligations & Capital</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="statement-table">
+                        <!-- 1. CURRENT LIABILITIES -->
+                        <tr class="statement-header">
+                            <td colspan="2"><i class="fas fa-clock"></i> I. CURRENT LIABILITIES (Short-Term)</td>
+                            <td style="text-align: right; width: 140px;">AMOUNT (₹)</td>
+                        </tr>
+                        {% if bs.liabilities.current_liabilities %}
+                            {% for item in bs.liabilities.current_liabilities %}
+                            <tr>
+                                <td style="width: 110px;"><span class="table-code">{{ item.code }}</span></td>
+                                <td><strong style="color: #f1f5f9;">{{ item.name }}</strong></td>
+                                <td style="text-align: right;">
+                                    <span class="drilldown-link"
+                                          onclick="showDrilldown('{{ item.code }}', '{{ item.name|replace('\'', '\\\'') }}', '{{ start_date }}', '{{ end_date }}')"
+                                          title="View contributing ledger entries">
+                                        ₹{{ "{:,.2f}".format(item.amount) }} <i class="fas fa-search-plus"></i>
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3" style="color: var(--text-muted); padding: 10px 16px;">No current liabilities recorded.</td>
+                            </tr>
+                        {% endif %}
+                        <tr class="statement-total">
+                            <td colspan="2">TOTAL CURRENT LIABILITIES</td>
+                            <td style="text-align: right; color: #f87171;">₹{{ "{:,.2f}".format(bs.liabilities.total_current_liabilities) }}</td>
+                        </tr>
+
+                        <!-- 2. LONG-TERM LIABILITIES -->
+                        {% if bs.liabilities.long_term_liabilities %}
+                        <tr class="statement-header">
+                            <td colspan="2"><i class="fas fa-hand-holding-usd"></i> II. LONG-TERM BORROWINGS & LOANS</td>
+                            <td style="text-align: right;">AMOUNT (₹)</td>
+                        </tr>
+                            {% for item in bs.liabilities.long_term_liabilities %}
+                            <tr>
+                                <td><span class="table-code">{{ item.code }}</span></td>
+                                <td><strong style="color: #f1f5f9;">{{ item.name }}</strong></td>
+                                <td style="text-align: right;">
+                                    <span class="drilldown-link"
+                                          onclick="showDrilldown('{{ item.code }}', '{{ item.name|replace('\'', '\\\'') }}', '{{ start_date }}', '{{ end_date }}')"
+                                          title="View contributing ledger entries">
+                                        ₹{{ "{:,.2f}".format(item.amount) }} <i class="fas fa-search-plus"></i>
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        <tr class="statement-total">
+                            <td colspan="2">TOTAL LONG-TERM LIABILITIES</td>
+                            <td style="text-align: right; color: #f87171;">₹{{ "{:,.2f}".format(bs.liabilities.total_long_term_liabilities) }}</td>
+                        </tr>
+                        {% endif %}
+
+                        <tr class="statement-total" style="background: rgba(239, 68, 68, 0.08);">
+                            <td colspan="2" style="font-weight: 700; color: #f87171;">TOTAL LIABILITIES (B)</td>
+                            <td style="text-align: right; color: #f87171; font-weight: 700;">₹{{ "{:,.2f}".format(bs.liabilities.total_liabilities) }}</td>
+                        </tr>
+
+                        <!-- 3. OWNER EQUITY -->
+                        <tr class="statement-header" style="color: var(--success); border-top: 2px solid rgba(16, 185, 129, 0.3);">
+                            <td colspan="2"><i class="fas fa-coins"></i> III. OWNER EQUITY & RETAINED EARNINGS</td>
+                            <td style="text-align: right;">AMOUNT (₹)</td>
+                        </tr>
+                        {% if bs.equity.lines %}
+                            {% for item in bs.equity.lines %}
+                            <tr>
+                                <td><span class="table-code">{{ item.code }}</span></td>
+                                <td>
+                                    <strong style="color: #f1f5f9;">{{ item.name }}</strong>
+                                    {% if item.code == '3030' %}
+                                        <span class="badge badge-purple" style="margin-left: 6px; font-size: 0.68rem;">From P&L</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: right;">
+                                    {% if item.code == '3030' %}
+                                        <a href="/profit-loss" style="color: {% if item.amount >= 0 %}#34d399{% else %}#f87171{% endif %}; font-weight: 700; text-decoration: none;" title="Derived from Profit & Loss">
+                                            ₹{{ "{:,.2f}".format(item.amount) }} <i class="fas fa-external-link-alt" style="font-size: 0.72rem;"></i>
+                                        </a>
+                                    {% else %}
+                                        <span class="drilldown-link"
+                                              onclick="showDrilldown('{{ item.code }}', '{{ item.name|replace('\'', '\\\'') }}', '{{ start_date }}', '{{ end_date }}')"
+                                              title="View contributing ledger entries">
+                                            ₹{{ "{:,.2f}".format(item.amount) }} <i class="fas fa-search-plus"></i>
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3" style="color: var(--text-muted); padding: 10px 16px;">No equity items recorded.</td>
+                            </tr>
+                        {% endif %}
+                        <tr class="statement-total" style="background: rgba(16, 185, 129, 0.08);">
+                            <td colspan="2" style="font-weight: 700; color: #34d399;">TOTAL OWNER EQUITY (C)</td>
+                            <td style="text-align: right; color: #34d399; font-weight: 700;">₹{{ "{:,.2f}".format(bs.equity.total_equity) }}</td>
+                        </tr>
+
+                        <!-- TOTAL LIABILITIES + EQUITY -->
+                        <tr class="statement-highlight" style="background: rgba(16, 185, 129, 0.15); border-top: 2px solid var(--success); border-bottom: 2px solid var(--success);">
+                            <td colspan="2" style="font-weight: 800; font-size: 1.05rem; color: white;">
+                                TOTAL LIABILITIES + OWNER EQUITY (B + C)
+                            </td>
+                            <td style="text-align: right; font-weight: 800; font-size: 1.15rem; color: #34d399;">
+                                ₹{{ "{:,.2f}".format(bs.total_liabilities_and_equity) }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Assets & Liabilities</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-title">
+                <h1>{% if focus_tab == 'liabilities' %}Liabilities & Loans Management{% elif focus_tab == 'assets' %}Fixed Assets & Depreciation{% else %}Assets & Liabilities Management{% endif %}</h1>
+                <p>{% if focus_tab == 'liabilities' %}Track commercial bank loans, principal & interest repayments, and subledger reconciliation{% elif focus_tab == 'assets' %}Monitor fixed capital assets, periodic depreciation, asset disposal, and net book values{% else %}Register fixed assets, periodic depreciation, commercial loans, and obligations{% endif %}</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                {% if focus_tab != 'liabilities' %}
+                <button onclick="openDeprModal()" class="btn btn-secondary" style="font-size: 0.85rem;">
+                    <i class="fas fa-calculator"></i> Run Depreciation
+                </button>
+                <button onclick="openAssetModal()" class="btn btn-primary" style="font-size: 0.85rem;">
+                    <i class="fas fa-plus"></i> Add Fixed Asset
+                </button>
+                {% endif %}
+                {% if focus_tab != 'assets' %}
+                <button onclick="openLoanModal()" class="btn btn-secondary" style="font-size: 0.85rem;">
+                    <i class="fas fa-landmark"></i> Record Borrowing
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- View Switcher Tabs -->
+        <div style="display: flex; gap: 10px; margin-bottom: 25px;">
+            <a href="/assets" class="btn {% if focus_tab == 'assets' or active_page == 'assets' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-size: 0.85rem; padding: 8px 18px;">
+                <i class="fas fa-landmark"></i> Assets View (Fixed & Current)
+            </a>
+            <a href="/liabilities" class="btn {% if focus_tab == 'liabilities' or active_page == 'liabilities' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-size: 0.85rem; padding: 8px 18px;">
+                <i class="fas fa-credit-card"></i> Liabilities View (Loans & Dues)
+            </a>
+            <a href="/assets-liabilities" class="btn {% if focus_tab not in ['assets', 'liabilities'] and active_page not in ['assets', 'liabilities'] %}btn-primary{% else %}btn-secondary{% endif %}" style="font-size: 0.85rem; padding: 8px 18px;">
+                <i class="fas fa-layer-group"></i> All Combined
+            </a>
+        </div>
+
+        <!-- Subledger Control & Reconciliation Banners -->
+        {% if focus_tab != 'liabilities' and asset_register %}
+        <div class="glass-panel" style="margin-bottom: 20px; padding: 12px 20px; border-left: 4px solid {{ '#10b981' if asset_register.is_reconciled else '#ef4444' }}; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <i class="fas {{ 'fa-check-circle' if asset_register.is_reconciled else 'fa-exclamation-triangle' }}" style="font-size: 1.3rem; color: {{ '#34d399' if asset_register.is_reconciled else '#f87171' }};"></i>
+                <div>
+                    <span style="font-weight: 600; color: #f8fafc;">Fixed Asset Register vs GL Control Reconciliation (1110–1160)</span>
+                    <span style="display: block; font-size: 0.8rem; color: var(--text-muted);">
+                        Register NBV: <strong>₹{{ "{:,.2f}".format(asset_register.total_net_book_value) }}</strong> | GL Net Asset Balance: <strong>₹{{ "{:,.2f}".format(asset_register.gl_net_book_value) }}</strong>
+                    </span>
+                </div>
+            </div>
+            <div>
+                <span class="badge {{ 'badge-success' if asset_register.is_reconciled else 'badge-danger' }}">
+                    {{ asset_register.status }} (Diff: ₹{{ "{:,.2f}".format(asset_register.difference) }})
+                </span>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if focus_tab != 'assets' and loan_subledger %}
+        <div class="glass-panel" style="margin-bottom: 20px; padding: 12px 20px; border-left: 4px solid {{ '#10b981' if loan_subledger.is_reconciled else '#ef4444' }}; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <i class="fas {{ 'fa-check-circle' if loan_subledger.is_reconciled else 'fa-exclamation-triangle' }}" style="font-size: 1.3rem; color: {{ '#34d399' if loan_subledger.is_reconciled else '#f87171' }};"></i>
+                <div>
+                    <span style="font-weight: 600; color: #f8fafc;">Loan Subledger vs GL Liability Control (2110 + 2120)</span>
+                    <span style="display: block; font-size: 0.8rem; color: var(--text-muted);">
+                        Subledger Principal Outstanding: <strong>₹{{ "{:,.2f}".format(loan_subledger.total_outstanding_balance) }}</strong> | GL Loan Balance: <strong>₹{{ "{:,.2f}".format(loan_subledger.gl_loan_balance) }}</strong>
+                    </span>
+                </div>
+            </div>
+            <div>
+                <span class="badge {{ 'badge-success' if loan_subledger.is_reconciled else 'badge-danger' }}">
+                    {{ loan_subledger.status }} (Diff: ₹{{ "{:,.2f}".format(loan_subledger.difference) }})
+                </span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- KPI Summary Cards -->
+        <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 25px;">
+            {% if focus_tab != 'liabilities' %}
+            <div class="kpi-card" style="border-top: 3px solid var(--accent);">
+                <div class="kpi-icon profit" style="background: rgba(6, 182, 212, 0.2); color: var(--accent);"><i class="fas fa-building"></i></div>
+                <div class="kpi-title">Fixed Assets (Net Book Value)</div>
+                <div class="kpi-value" style="color: #38bdf8;">₹{{ "{:,.2f}".format(total_fixed_assets) }}</div>
+                <span class="kpi-badge badge-info">Cost minus Depreciation</span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid var(--success);">
+                <div class="kpi-icon profit" style="background: rgba(16, 185, 129, 0.2); color: var(--success);"><i class="fas fa-wallet"></i></div>
+                <div class="kpi-title">Current Assets</div>
+                <div class="kpi-value" style="color: #34d399;">₹{{ "{:,.2f}".format(bs_assets.total_current_assets if bs_assets else 0) }}</div>
+                <span class="kpi-badge badge-success">Cash, Bank, Debtors & Stock</span>
+            </div>
+            {% endif %}
+
+            {% if focus_tab != 'assets' %}
+            <div class="kpi-card" style="border-top: 3px solid #c084fc;">
+                <div class="kpi-icon payable" style="background: rgba(192, 132, 252, 0.2); color: #c084fc;"><i class="fas fa-landmark"></i></div>
+                <div class="kpi-title">Active Loan Obligations</div>
+                <div class="kpi-value" style="color: #c084fc;">₹{{ "{:,.2f}".format(total_loans) }}</div>
+                <span class="kpi-badge badge-warning">Principal Outstanding</span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid var(--danger);">
+                <div class="kpi-icon payable" style="background: rgba(239, 68, 68, 0.2); color: var(--danger);"><i class="fas fa-file-invoice-dollar"></i></div>
+                <div class="kpi-title">Current Liabilities & Dues</div>
+                <div class="kpi-value" style="color: #f87171;">₹{{ "{:,.2f}".format(bs_liabilities.total_current_liabilities if bs_liabilities else 0) }}</div>
+                <span class="kpi-badge badge-danger">Payables, GST & Salary Dues</span>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if focus_tab != 'liabilities' %}
+        <!-- Section 1: Fixed Assets Register -->
+        <div class="glass-panel" id="assets" style="margin-bottom: 30px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3><i class="fas fa-tools" style="color: var(--accent);"></i> Fixed Assets Register & Depreciation</h3>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="openDeprModal()" class="btn btn-secondary" style="padding: 7px 14px; font-size: 0.82rem;">
+                        <i class="fas fa-calculator"></i> Post Depreciation
+                    </button>
+                    <button onclick="openAssetModal()" class="btn btn-primary" style="padding: 7px 14px; font-size: 0.82rem;">
+                        <i class="fas fa-plus"></i> New Asset
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Asset Name</th>
+                            <th style="width: 120px;">Category</th>
+                            <th class="col-currency" style="width: 120px;">Cost (₹)</th>
+                            <th class="col-currency" style="width: 120px;">Depr (₹)</th>
+                            <th class="col-currency" style="width: 130px;">NBV (₹)</th>
+                            <th class="col-badge" style="width: 90px;">Status</th>
+                            <th class="col-action" style="width: 170px;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if asset_register and asset_register.assets %}
+                            {% for a in asset_register.assets %}
+                            <tr>
+                                <td>
+                                    <strong style="color: #f1f5f9;">{{ a.asset_name }}</strong>
+                                    <span style="display: block; font-size: 0.72rem; color: var(--text-muted);">{{ a.asset_code }}</span>
+                                </td>
+                                <td><span class="badge badge-info">{{ a.category }}</span></td>
+                                <td class="col-currency">₹{{ "{:,.2f}".format(a.purchase_value) }}</td>
+                                <td class="col-currency" style="color: #f87171;">₹{{ "{:,.2f}".format(a.accumulated_depreciation) }}</td>
+                                <td class="col-currency" style="font-weight: 700; color: #38bdf8;">₹{{ "{:,.2f}".format(a.net_book_value) }}</td>
+                                <td class="col-badge">
+                                    <span class="badge {{ 'badge-success' if a.status == 'Active' else 'badge-secondary' }}">{{ a.status }}</span>
+                                </td>
+                                <td class="col-action">
+                                    <div class="table-actions-group">
+                                        <button type="button"
+                                                onclick="viewAssetDetails('{{ a.asset_code }}', '{{ a.asset_name|replace('\'', '\\\'') }}', '{{ a.category }}', '{{ a.purchase_date }}', {{ a.purchase_value }}, {{ a.accumulated_depreciation }}, {{ a.net_book_value }}, {{ a.useful_life_years or 5 }}, '{{ a.payment_method or 'Bank Transfer' }}', '{{ a.status }}')"
+                                                class="btn-details" title="View Asset Details">
+                                            <i class="fas fa-eye"></i> View
+                                        </button>
+                                        {% if a.status != 'Disposed' %}
+                                        <button onclick="openDisposeModal({{ a.id }}, '{{ a.asset_name|replace('\'', '\\\'') }}', {{ a.net_book_value }})"
+                                                class="btn-action-sm btn-secondary" style="color: #f87171;" title="Dispose / Sell Asset">
+                                            <i class="fas fa-trash-alt"></i> Dispose
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center" style="color: var(--text-muted); padding: 40px 20px;">
+                                    <i class="fas fa-cubes" style="font-size: 2rem; display: block; margin-bottom: 10px; opacity: 0.4;"></i>
+                                    No fixed assets registered. Click "+ New Asset" to add equipment, machinery, or vehicles.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if focus_tab != 'assets' %}
+        <!-- Section 2: Liabilities & Borrowings -->
+        <div class="glass-panel" id="liabilities" style="margin-bottom: 30px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3><i class="fas fa-file-contract" style="color: #c084fc;"></i> Loans & Borrowings Subledger</h3>
+                <button onclick="openLoanModal()" class="btn btn-secondary" style="padding: 7px 14px; font-size: 0.82rem;">
+                    <i class="fas fa-plus"></i> New Loan
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Facility Title</th>
+                            <th style="width: 130px;">Lender</th>
+                            <th class="col-currency" style="width: 120px;">Principal</th>
+                            <th class="col-currency" style="width: 120px;">Repaid (Dr)</th>
+                            <th class="col-currency" style="width: 120px;">Interest (P&L)</th>
+                            <th class="col-currency" style="width: 130px;">Outstanding</th>
+                            <th class="col-action" style="width: 180px;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if loan_subledger and loan_subledger.loans %}
+                            {% for l in loan_subledger.loans %}
+                            <tr>
+                                <td>
+                                    <strong style="color: #f1f5f9;">{{ l.title }}</strong>
+                                    <span style="display: block; font-size: 0.72rem; color: var(--text-muted);">{{ l.liability_code }} • {{ l.liability_type }}</span>
+                                </td>
+                                <td style="font-weight: 500;">{{ l.lender or 'Bank' }}</td>
+                                <td class="col-currency">₹{{ "{:,.2f}".format(l.principal_amount) }}</td>
+                                <td class="col-currency" style="color: #34d399;">₹{{ "{:,.2f}".format(l.principal_repaid) }}</td>
+                                <td class="col-currency" style="color: #fbbf24;">₹{{ "{:,.2f}".format(l.interest_paid) }}</td>
+                                <td class="col-currency" style="font-weight: 700; color: #f87171;">₹{{ "{:,.2f}".format(l.outstanding_balance) }}</td>
+                                <td class="col-action">
+                                    <div class="table-actions-group">
+                                        <button type="button"
+                                                onclick="viewLoanDetails('{{ l.liability_code }}', '{{ l.title|replace('\'', '\\\'') }}', '{{ (l.lender or 'Bank')|replace('\'', '\\\'') }}', '{{ l.liability_type }}', '{{ l.start_date }}', {{ l.principal_amount }}, {{ l.interest_rate }}, {{ l.outstanding_balance }}, '{{ l.status }}')"
+                                                class="btn-details" title="View Loan Details">
+                                            <i class="fas fa-eye"></i> View
+                                        </button>
+                                        {% if l.outstanding_balance > 0 %}
+                                        <button onclick="openRepayModal({{ l.id }}, '{{ l.title|replace('\'', '\\\'') }}', {{ l.outstanding_balance }})"
+                                                class="btn-action-sm btn-primary" title="Pay Installment">
+                                            <i class="fas fa-hand-holding-usd"></i> Repay
+                                        </button>
+                                        {% else %}
+                                        <span class="badge badge-secondary" style="font-size: 0.72rem;">Settled</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center" style="color: var(--text-muted); padding: 40px 20px;">
+                                    <i class="fas fa-landmark" style="font-size: 2rem; display: block; margin-bottom: 10px; opacity: 0.4;"></i>
+                                    No loans or commercial borrowings recorded.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Modal: Add Asset -->
+    <div id="assetModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 500px; margin: 20px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3><i class="fas fa-plus-circle" style="color: var(--accent);"></i> Add Fixed Asset</h3>
+                <button onclick="closeAssetModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form onsubmit="submitAsset(event)">
+                <div class="form-group">
+                    <label class="form-label">Asset Name *</label>
+                    <input type="text" id="assetName" class="form-control" placeholder="e.g. Packaging Sealer Machine, POS Terminal" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Category *</label>
+                        <select id="assetCategory" class="form-select" required>
+                            <option value="Machinery">Machinery & Plant (1130)</option>
+                            <option value="Equipment">Equipment & Computers (1140)</option>
+                            <option value="Vehicles">Motor Vehicles (1150)</option>
+                            <option value="Building">Building & Premises (1110)</option>
+                            <option value="Furniture">Furniture & Fixtures (1145)</option>
+                            <option value="Other">Other Fixed Asset (1155)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Purchase Date *</label>
+                        <input type="date" id="assetDate" class="form-control" required>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Purchase Cost (₹) *</label>
+                        <input type="number" step="0.01" id="assetCost" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Useful Life (Years)</label>
+                        <input type="number" id="assetLife" class="form-control" value="5" min="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select id="assetPayment" class="form-select">
+                        <option value="Bank Transfer">Bank Current Account</option>
+                        <option value="Cash">Cash on Hand</option>
+                        <option value="Cheque">Cheque</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Save Asset</button>
+                    <button type="button" onclick="closeAssetModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Run Periodic Depreciation -->
+    <div id="deprModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 480px; margin: 20px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;"><i class="fas fa-calculator" style="color: #38bdf8;"></i> Post Periodic Depreciation</h3>
+                <button onclick="closeDeprModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form onsubmit="submitDepreciation(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Select Fixed Asset *</label>
+                    <select id="deprAssetId" class="form-select" required>
+                        {% if asset_register and asset_register.assets %}
+                            {% for a in asset_register.assets %}
+                                {% if a.status != 'Disposed' %}
+                                <option value="{{ a.id }}">{{ a.asset_code }} - {{ a.asset_name }} (NBV: ₹{{ "{:,.2f}".format(a.net_book_value) }})</option>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Depreciation Posting Date *</label>
+                    <input type="date" id="deprDate" class="form-control" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="form-label">Depreciation Amount (₹) [Leave blank for straight-line auto-calc]</label>
+                    <input type="number" step="0.01" id="deprAmount" class="form-control" placeholder="Auto-calculated if blank">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Post Depreciation Entry</button>
+                    <button type="button" onclick="closeDeprModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Dispose Asset -->
+    <div id="disposeModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 480px; margin: 20px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;"><i class="fas fa-trash-alt" style="color: #f87171;"></i> Asset Disposal & Gain/Loss</h3>
+                <button onclick="closeDisposeModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form onsubmit="submitDisposal(event)">
+                <input type="hidden" id="disposeAssetId">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Asset</label>
+                    <input type="text" id="disposeAssetName" class="form-control" readonly style="background: rgba(0,0,0,0.2);">
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Disposal Date *</label>
+                    <input type="date" id="disposeDate" class="form-control" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Disposal Proceeds (Sale Value ₹)</label>
+                    <input type="number" step="0.01" id="disposeProceeds" class="form-control" placeholder="0.00" value="0.00" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Receipt Mode</label>
+                    <select id="disposeMethod" class="form-select">
+                        <option value="Bank Transfer">Bank Current Account</option>
+                        <option value="Cash">Cash on Hand</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="form-label">Notes / Reason</label>
+                    <input type="text" id="disposeNotes" class="form-control" placeholder="e.g. Sold scrap equipment">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1; background: #ef4444; border-color: #ef4444;">Confirm Asset Disposal</button>
+                    <button type="button" onclick="closeDisposeModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Record Loan Repayment (Principal + Interest Split) -->
+    <div id="repayModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 500px; margin: 20px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;"><i class="fas fa-hand-holding-usd" style="color: #c084fc;"></i> Loan Repayment Installment</h3>
+                <button onclick="closeRepayModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form onsubmit="submitRepayment(event)">
+                <input type="hidden" id="repayLiaId">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Loan Facility</label>
+                    <input type="text" id="repayLiaTitle" class="form-control" readonly style="background: rgba(0,0,0,0.2);">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Principal Amount (₹) *</label>
+                        <input type="number" step="0.01" id="repayPrincipal" class="form-control" placeholder="Reduces Liability" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Interest Amount (₹)</label>
+                        <input type="number" step="0.01" id="repayInterest" class="form-control" placeholder="Finance Cost" value="0.00">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Payment Date *</label>
+                        <input type="date" id="repayDate" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Disbursement Mode</label>
+                        <select id="repayMethod" class="form-select">
+                            <option value="Bank Transfer">Bank Current Account</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Cash">Cash on Hand</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="form-label">Reference / UTR No.</label>
+                    <input type="text" id="repayRef" class="form-control" placeholder="e.g. UTR-EMI-88192">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Post Installment Entry</button>
+                    <button type="button" onclick="closeRepayModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Add Loan -->
+    <div id="loanModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 500px; margin: 20px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3><i class="fas fa-landmark" style="color: #c084fc;"></i> Record Loan / Borrowing</h3>
+                <button onclick="closeLoanModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form onsubmit="submitLoan(event)">
+                <div class="form-group">
+                    <label class="form-label">Loan / Facility Title *</label>
+                    <input type="text" id="loanTitle" class="form-control" placeholder="e.g. Working Capital Term Loan" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Loan Type *</label>
+                        <select id="loanType" class="form-select" required>
+                            <option value="Bank Loan">Commercial Bank Loan (2110)</option>
+                            <option value="Personal Loan">Partner / Personal Loan (2120)</option>
+                            <option value="Other">Other Borrowing</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Lender Name</label>
+                        <input type="text" id="loanLender" class="form-control" placeholder="e.g. SBI Bank">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">Principal Amount (₹) *</label>
+                        <input type="number" step="0.01" id="loanPrincipal" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Interest Rate (% p.a.)</label>
+                        <input type="number" step="0.1" id="loanRate" class="form-control" value="10.5">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Disbursement Date</label>
+                    <input type="date" id="loanDate" class="form-control" required>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Save Loan</button>
+                    <button type="button" onclick="closeLoanModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (document.getElementById('assetDate')) document.getElementById('assetDate').value = todayStr;
+        if (document.getElementById('loanDate')) document.getElementById('loanDate').value = todayStr;
+        if (document.getElementById('deprDate')) document.getElementById('deprDate').value = todayStr;
+        if (document.getElementById('disposeDate')) document.getElementById('disposeDate').value = todayStr;
+        if (document.getElementById('repayDate')) document.getElementById('repayDate').value = todayStr;
+
+        function openAssetModal() { document.getElementById('assetModal').style.display = 'flex'; }
+        function closeAssetModal() { document.getElementById('assetModal').style.display = 'none'; }
+        function openLoanModal() { document.getElementById('loanModal').style.display = 'flex'; }
+        function closeLoanModal() { document.getElementById('loanModal').style.display = 'none'; }
+        function openDeprModal() { document.getElementById('deprModal').style.display = 'flex'; }
+        function closeDeprModal() { document.getElementById('deprModal').style.display = 'none'; }
+
+        function openDisposeModal(id, name, nbv) {
+            document.getElementById('disposeAssetId').value = id;
+            document.getElementById('disposeAssetName').value = `${name} (NBV: ₹${nbv.toFixed(2)})`;
+            document.getElementById('disposeModal').style.display = 'flex';
+        }
+        function closeDisposeModal() { document.getElementById('disposeModal').style.display = 'none'; }
+
+        function openRepayModal(id, title, balance) {
+            document.getElementById('repayLiaId').value = id;
+            document.getElementById('repayLiaTitle').value = `${title} (Remaining Principal: ₹${balance.toFixed(2)})`;
+            document.getElementById('repayPrincipal').value = '';
+            document.getElementById('repayInterest').value = '0.00';
+            document.getElementById('repayModal').style.display = 'flex';
+        }
+        function closeRepayModal() { document.getElementById('repayModal').style.display = 'none'; }
+
+        function submitAsset(e) {
+            e.preventDefault();
+            const payload = {
+                asset_name: document.getElementById('assetName').value,
+                category: document.getElementById('assetCategory').value,
+                purchase_date: document.getElementById('assetDate').value,
+                purchase_value: document.getElementById('assetCost').value,
+                useful_life_years: document.getElementById('assetLife').value,
+                payment_method: document.getElementById('assetPayment').value
+            };
+            fetch('/api/assets/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'success') location.reload();
+                else alert('Error: ' + res.message);
+            });
+        }
+
+        async function submitDepreciation(e) {
+            e.preventDefault();
+            const payload = {
+                asset_id: document.getElementById('deprAssetId').value,
+                depreciation_date: document.getElementById('deprDate').value,
+                amount: document.getElementById('deprAmount').value ? parseFloat(document.getElementById('deprAmount').value) : null
+            };
+
+            try {
+                const res = await fetch('/api/assets/depreciate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('Periodic Depreciation posted successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
+
+        async function submitDisposal(e) {
+            e.preventDefault();
+            const payload = {
+                asset_id: document.getElementById('disposeAssetId').value,
+                disposal_date: document.getElementById('disposeDate').value,
+                disposal_proceeds: parseFloat(document.getElementById('disposeProceeds').value || 0.0),
+                payment_method: document.getElementById('disposeMethod').value,
+                notes: document.getElementById('disposeNotes').value
+            };
+
+            try {
+                const res = await fetch('/api/assets/dispose', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('Asset Disposal recorded and Gain/Loss posted!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
+
+        async function submitRepayment(e) {
+            e.preventDefault();
+            const payload = {
+                liability_id: document.getElementById('repayLiaId').value,
+                principal_amount: parseFloat(document.getElementById('repayPrincipal').value),
+                interest_amount: parseFloat(document.getElementById('repayInterest').value || 0.0),
+                payment_date: document.getElementById('repayDate').value,
+                payment_method: document.getElementById('repayMethod').value,
+                reference_no: document.getElementById('repayRef').value
+            };
+
+            try {
+                const res = await fetch('/api/loans/repay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('Loan Repayment posted with correct Principal & Interest split!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
+
+        function submitLoan(e) {
+            e.preventDefault();
+            const payload = {
+                title: document.getElementById('loanTitle').value,
+                liability_type: document.getElementById('loanType').value,
+                lender: document.getElementById('loanLender').value,
+                principal_amount: document.getElementById('loanPrincipal').value,
+                interest_rate: document.getElementById('loanRate').value,
+                start_date: document.getElementById('loanDate').value
+            };
+            fetch('/api/liabilities/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'success') location.reload();
+                else alert('Error: ' + res.message);
+            });
+        }
+
+        function viewAssetDetails(code, name, category, date, cost, depr, value, life, method, status) {
+            showRecordDetails({
+                title: 'Fixed Asset: ' + name,
+                subtitle: 'Capital Asset & Depreciation Record',
+                icon: 'fas fa-landmark',
+                iconColor: 'var(--accent)',
+                badge: { text: status, class: 'badge-success' },
+                sections: [
+                    {
+                        title: 'Asset Identification',
+                        icon: 'fas fa-tag',
+                        fields: [
+                            { label: 'Asset Code', value: code, code: true },
+                            { label: 'Asset Name', value: name, bold: true },
+                            { label: 'Asset Category', value: category, badgeClass: 'badge-info' },
+                            { label: 'Asset Status', value: status }
+                        ]
+                    },
+                    {
+                        title: 'Acquisition & Book Valuation',
+                        icon: 'fas fa-coins',
+                        fields: [
+                            { label: 'Purchase Date', value: date },
+                            { label: 'Useful Life', value: (life || 5) + ' Years' },
+                            { label: 'Original Purchase Cost', value: '₹' + Number(cost).toLocaleString('en-IN', {minimumFractionDigits: 2}) },
+                            { label: 'Accumulated Depreciation', value: '₹' + Number(depr).toLocaleString('en-IN', {minimumFractionDigits: 2}), color: '#f87171' },
+                            { label: 'Current Net Book Value', value: '₹' + Number(value).toLocaleString('en-IN', {minimumFractionDigits: 2}), color: '#38bdf8', bold: true },
+                            { label: 'Payment Method', value: method || 'Bank Transfer' }
+                        ]
+                    }
+                ]
+            });
+        }
+
+        function viewLoanDetails(code, title, lender, type, date, principal, rate, balance, status) {
+            showRecordDetails({
+                title: 'Borrowing: ' + title,
+                subtitle: 'Commercial Loan & Long-Term Liability Record',
+                icon: 'fas fa-credit-card',
+                iconColor: '#c084fc',
+                badge: { text: status, class: 'badge-warning' },
+                sections: [
+                    {
+                        title: 'Loan Identification & Terms',
+                        icon: 'fas fa-file-contract',
+                        fields: [
+                            { label: 'Facility Title', value: title, bold: true },
+                            { label: 'Loan Code', value: code, code: true },
+                            { label: 'Borrowing Type', value: type, badgeClass: 'badge-warning' },
+                            { label: 'Lender / Bank', value: lender || 'Commercial Bank' }
+                        ]
+                    },
+                    {
+                        title: 'Financial Exposure & Interest',
+                        icon: 'fas fa-money-bill-wave',
+                        fields: [
+                            { label: 'Disbursement Date', value: date },
+                            { label: 'Annual Interest Rate', value: rate + '% p.a.', color: '#fbbf24' },
+                            { label: 'Principal Amount', value: '₹' + Number(principal).toLocaleString('en-IN', {minimumFractionDigits: 2}) },
+                            { label: 'Outstanding Balance', value: '₹' + Number(balance).toLocaleString('en-IN', {minimumFractionDigits: 2}), color: '#f87171', bold: true }
+                        ]
+                    }
+                ]
+            });
+        }
+    </script>
+</body>
+</html>

@@ -3,18 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sagar Accounts — Profit & Loss Reports</title>
+    <title>Sagar Accounts — Financial Reports Center</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        @media print {
-            .sidebar, .top-bar, .filter-box, .btn { display: none !important; }
-            .main-content { padding: 0 !important; max-height: none !important; }
-            body { background: white !important; color: black !important; }
-            .glass-panel { background: white !important; border: 1px solid #ccc !important; color: black !important; box-shadow: none !important; }
-            .custom-table th, .custom-table td { color: black !important; border-bottom: 1px solid #ddd !important; }
-            .formula-card { border: 1px solid #333 !important; color: black !important; }
+        .report-tab {
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-decoration: none;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            transition: 0.2s;
+        }
+        .report-tab.active, .report-tab:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .statement-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .statement-table th, .statement-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .statement-header {
+            background: rgba(255, 255, 255, 0.03);
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            font-size: 0.82rem;
+            letter-spacing: 0.5px;
+        }
+        .statement-total {
+            background: rgba(255, 255, 255, 0.06);
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+        .statement-highlight {
+            background: rgba(99, 102, 241, 0.15);
+            font-weight: 800;
+            font-size: 1.05rem;
+            border-top: 2px solid var(--primary);
+            border-bottom: 2px solid var(--primary);
         }
     </style>
 </head>
@@ -22,142 +58,271 @@
     {% include 'sidebar.html' %}
 
     <div class="main-content">
-        <div class="top-bar">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div class="page-title">
-                <h1>Profit & Loss Statement & Financial Reports</h1>
-                <p>Audited accounting statements with COGS, operating overheads, and cash flow analysis</p>
+                <h1>Financial & Business Reports</h1>
+                <p>Audited financial statements, operational summaries, and statutory tax reports</p>
             </div>
-            <div style="display: flex; gap: 10px;">
-                <button onclick="window.print()" class="btn btn-secondary"><i class="fas fa-print"></i> Print Statement</button>
-                <a href="/api/reports/export-csv?start_date={{ filters.start_date or '' }}&end_date={{ filters.end_date or '' }}" class="btn btn-success"><i class="fas fa-file-excel"></i> Export CSV</a>
-            </div>
+            <button onclick="window.print()" class="btn btn-secondary">
+                <i class="fas fa-print"></i> Print Report
+            </button>
         </div>
 
-        <!-- Filter Box -->
-        <div class="glass-panel filter-box" style="padding: 18px; margin-bottom: 25px;">
-            <form method="GET" action="/reports" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                <div>
-                    <label class="form-label">Start Date</label>
-                    <input type="date" name="start_date" class="form-control" value="{{ filters.start_date or '' }}">
-                </div>
-                <div>
-                    <label class="form-label">End Date</label>
-                    <input type="date" name="end_date" class="form-control" value="{{ filters.end_date or '' }}">
-                </div>
-                <div style="align-self: flex-end;">
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-chart-bar"></i> Generate Statement</button>
-                    <a href="/reports" class="btn btn-secondary"><i class="fas fa-undo"></i> Reset</a>
-                </div>
-            </form>
+        <!-- Comprehensive Report Navigator -->
+        <div style="display: flex; gap: 8px; margin-bottom: 25px; flex-wrap: wrap; align-items: center;">
+            <a href="/reports?tab=pnl" class="report-tab {% if current_tab == 'pnl' or not current_tab %}active{% endif %}">
+                <i class="fas fa-chart-line"></i> Profit & Loss
+            </a>
+            <a href="/reports?tab=bs" class="report-tab {% if current_tab == 'bs' %}active{% endif %}">
+                <i class="fas fa-balance-scale"></i> Balance Sheet
+            </a>
+            <a href="/reports?tab=tb" class="report-tab {% if current_tab == 'tb' %}active{% endif %}">
+                <i class="fas fa-tasks"></i> Trial Balance
+            </a>
+            <a href="/reports?tab=gst" class="report-tab {% if current_tab == 'gst' %}active{% endif %}">
+                <i class="fas fa-percentage"></i> GST Report
+            </a>
+            <span style="color: var(--glass-border); margin: 0 4px;">|</span>
+            <a href="/ledger?account_id=1010" class="report-tab" title="View Cash & Bank movements in Ledger">
+                <i class="fas fa-wallet"></i> Cash / Bank Summary
+            </a>
+            <a href="/sales-ledger" class="report-tab" title="View Invoiced Sales Register">
+                <i class="fas fa-shopping-cart"></i> Sales Report
+            </a>
+            <a href="/payables" class="report-tab" title="View Purchases & Vendor Bills">
+                <i class="fas fa-truck-loading"></i> Purchase Report
+            </a>
+            <a href="/expenses" class="report-tab" title="View Direct COGS and Operating Expenses">
+                <i class="fas fa-receipt"></i> Expense Report
+            </a>
+            <a href="/tax" class="report-tab" title="View TDS and Tax Withholdings">
+                <i class="fas fa-file-invoice-dollar"></i> TDS Report
+            </a>
         </div>
 
-        <!-- Formula Callout -->
-        <div class="formula-card">
-            Formula: TOTAL REVENUE [ - ] TOTAL COGS [ direct expenses ] = GROSS PROFIT | GROSS PROFIT [ - ] OPERATING EXPENSES = NET PROFIT
-        </div>
-
-        <!-- Profit and Loss Statement -->
+        <!-- ============================================== -->
+        <!-- TAB 1: PROFIT & LOSS STATEMENT                -->
+        <!-- ============================================== -->
+        {% if current_tab == 'pnl' or not current_tab %}
         <div class="glass-panel">
-            <div class="panel-header" style="border-bottom: 2px solid var(--glass-border); padding-bottom: 15px; margin-bottom: 20px;">
+            <div class="panel-header" style="text-align: center; margin-bottom: 25px;">
+                <h2 style="font-size: 1.3rem; font-weight: 800; color: white;">STATEMENT OF PROFIT & LOSS</h2>
+                <span style="font-size: 0.85rem; color: var(--text-muted);">Period: {{ pnl.period.start_date }} to {{ pnl.period.end_date }}</span>
+            </div>
+
+            <table class="statement-table">
+                <!-- REVENUE -->
+                <tr class="statement-header">
+                    <td colspan="2"><i class="fas fa-arrow-down-left"></i> I. REVENUE / INCOME</td>
+                    <td style="text-align: right;">AMOUNT (₹)</td>
+                </tr>
+                {% for item in pnl.revenue.lines %}
+                <tr>
+                    <td style="width: 100px; color: var(--text-muted);">{{ item.code }}</td>
+                    <td>{{ item.name }}</td>
+                    <td style="text-align: right;">₹{{ "{:,.2f}".format(item.amount) }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="statement-total">
+                    <td colspan="2">TOTAL REVENUE (A)</td>
+                    <td style="text-align: right; color: var(--success);">₹{{ "{:,.2f}".format(pnl.revenue.total) }}</td>
+                </tr>
+
+                <!-- COGS -->
+                <tr class="statement-header" style="border-top: 20px solid transparent;">
+                    <td colspan="2"><i class="fas fa-boxes"></i> II. COST OF GOODS SOLD / DIRECT EXPENSES</td>
+                    <td style="text-align: right;">AMOUNT (₹)</td>
+                </tr>
+                {% for item in pnl.cogs.lines %}
+                <tr>
+                    <td style="color: var(--text-muted);">{{ item.code }}</td>
+                    <td>{{ item.name }}</td>
+                    <td style="text-align: right;">₹{{ "{:,.2f}".format(item.amount) }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="statement-total">
+                    <td colspan="2">TOTAL COGS / DIRECT PRODUCTION COSTS (B)</td>
+                    <td style="text-align: right; color: var(--warning);">₹{{ "{:,.2f}".format(pnl.cogs.total) }}</td>
+                </tr>
+
+                <!-- GROSS PROFIT -->
+                <tr class="statement-highlight" style="color: #38bdf8;">
+                    <td colspan="2">GROSS PROFIT = TOTAL REVENUE [ - ] TOTAL COGS (A - B)</td>
+                    <td style="text-align: right; font-size: 1.15rem;">₹{{ "{:,.2f}".format(pnl.gross_profit) }}</td>
+                </tr>
+
+                <!-- OPERATING EXPENSES -->
+                <tr class="statement-header" style="border-top: 20px solid transparent;">
+                    <td colspan="2"><i class="fas fa-store"></i> III. OPERATING EXPENSES</td>
+                    <td style="text-align: right;">AMOUNT (₹)</td>
+                </tr>
+                {% for item in pnl.operating_expenses.lines %}
+                <tr>
+                    <td style="color: var(--text-muted);">{{ item.code }}</td>
+                    <td>
+                        {{ item.name }}
+                        {% if item.code == '6010' %}
+                            <span style="font-size: 0.68rem; background: rgba(99, 102, 241, 0.2); color: #818cf8; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Sales Counter</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">₹{{ "{:,.2f}".format(item.amount) }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="statement-total">
+                    <td colspan="2">TOTAL OPERATING EXPENSES (C)</td>
+                    <td style="text-align: right; color: var(--danger);">₹{{ "{:,.2f}".format(pnl.operating_expenses.total) }}</td>
+                </tr>
+
+                <!-- NET PROFIT -->
+                <tr class="statement-highlight" style="color: {% if pnl.net_profit >= 0 %}#34d399{% else %}#f87171{% endif %}; background: rgba(16, 185, 129, 0.15);">
+                    <td colspan="2">NET PROFIT = GROSS PROFIT [ - ] TOTAL OPERATING EXPENSES</td>
+                    <td style="text-align: right; font-size: 1.25rem;">₹{{ "{:,.2f}".format(pnl.net_profit) }}</td>
+                </tr>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- ============================================== -->
+        <!-- TAB 2: BALANCE SHEET                           -->
+        <!-- ============================================== -->
+        {% if current_tab == 'bs' %}
+        <div class="glass-panel">
+            <div class="panel-header" style="text-align: center; margin-bottom: 25px;">
+                <h2 style="font-size: 1.3rem; font-weight: 800; color: white;">STATEMENT OF FINANCIAL POSITION (BALANCE SHEET)</h2>
+                <span style="font-size: 0.85rem; color: var(--text-muted);">As of {{ bs.as_of_date }}</span>
+            </div>
+
+            <div class="grid-2-split">
+                <!-- ASSETS SIDE -->
                 <div>
-                    <h2 style="color: white; font-size: 1.4rem;">PROFIT AND LOSS STATEMENT</h2>
-                    <p style="font-size: 0.85rem; color: var(--text-muted);">Period: {{ pnl.period.start_date }} to {{ pnl.period.end_date }}</p>
+                    <h3 style="color: #38bdf8; font-size: 1.1rem; border-bottom: 2px solid var(--accent); padding-bottom: 8px; margin-bottom: 15px;">
+                        <i class="fas fa-coins"></i> ASSETS
+                    </h3>
+                    <div class="table-responsive">
+                        <table class="statement-table">
+                            <tr class="statement-header"><td colspan="2">A. FIXED ASSETS</td></tr>
+                            {% for a in bs.assets.fixed_assets %}
+                            <tr><td>{{ a.name }}</td><td class="col-currency">₹{{ "{:,.2f}".format(a.amount) }}</td></tr>
+                            {% endfor %}
+                            <tr class="statement-total"><td>Total Fixed Assets</td><td class="col-currency">₹{{ "{:,.2f}".format(bs.assets.total_fixed_assets) }}</td></tr>
+
+                            <tr class="statement-header"><td colspan="2">B. CURRENT ASSETS</td></tr>
+                            {% for a in bs.assets.current_assets %}
+                            <tr><td>{{ a.name }}</td><td class="col-currency">₹{{ "{:,.2f}".format(a.amount) }}</td></tr>
+                            {% endfor %}
+                            <tr class="statement-total"><td>Total Current Assets</td><td class="col-currency">₹{{ "{:,.2f}".format(bs.assets.total_current_assets) }}</td></tr>
+
+                            <tr class="statement-highlight" style="color: #38bdf8;">
+                                <td>TOTAL ASSETS</td>
+                                <td class="col-currency">₹{{ "{:,.2f}".format(bs.assets.total_assets) }}</td>
+                            </tr>
+                        </table>
+                    </div>
                 </div>
-                <div style="text-align: right;">
-                    <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Net Profit / Loss</div>
-                    <div style="font-size: 1.8rem; font-weight: 800; color: {% if pnl.net_profit >= 0 %}var(--success){% else %}var(--danger){% endif %};">
-                        ₹{{ "%.2f"|format(pnl.net_profit) }}
+
+                <!-- LIABILITIES & EQUITY SIDE -->
+                <div>
+                    <h3 style="color: #c084fc; font-size: 1.1rem; border-bottom: 2px solid #c084fc; padding-bottom: 8px; margin-bottom: 15px;">
+                        <i class="fas fa-balance-scale"></i> LIABILITIES & EQUITY
+                    </h3>
+                    <div class="table-responsive">
+                        <table class="statement-table">
+                            <tr class="statement-header"><td colspan="2">A. CURRENT LIABILITIES</td></tr>
+                            {% for l in bs.liabilities.current_liabilities %}
+                            <tr><td>{{ l.name }}</td><td class="col-currency">₹{{ "{:,.2f}".format(l.amount) }}</td></tr>
+                            {% endfor %}
+                            <tr class="statement-total"><td>Total Current Liabilities</td><td class="col-currency">₹{{ "{:,.2f}".format(bs.liabilities.total_current_liabilities) }}</td></tr>
+
+                            <tr class="statement-header"><td colspan="2">B. LONG-TERM LIABILITIES</td></tr>
+                            {% for l in bs.liabilities.long_term_liabilities %}
+                            <tr><td>{{ l.name }}</td><td class="col-currency">₹{{ "{:,.2f}".format(l.amount) }}</td></tr>
+                            {% endfor %}
+                            <tr class="statement-total"><td>Total Long-Term Liabilities</td><td class="col-currency">₹{{ "{:,.2f}".format(bs.liabilities.total_long_term_liabilities) }}</td></tr>
+
+                            <tr class="statement-header"><td colspan="2">C. OWNER EQUITY & RESERVES</td></tr>
+                            {% for e in bs.equity.lines %}
+                            <tr><td>{{ e.name }}</td><td class="col-currency">₹{{ "{:,.2f}".format(e.amount) }}</td></tr>
+                            {% endfor %}
+                            <tr class="statement-total"><td>Total Equity</td><td class="col-currency">₹{{ "{:,.2f}".format(bs.equity.total_equity) }}</td></tr>
+
+                            <tr class="statement-highlight" style="color: #c084fc;">
+                                <td>TOTAL LIABILITIES & EQUITY</td>
+                                <td class="col-currency">₹{{ "{:,.2f}".format(bs.total_liabilities_and_equity) }}</td>
+                            </tr>
+                        </table>
                     </div>
                 </div>
             </div>
+        </div>
+        {% endif %}
 
-            <!-- Statement Table -->
-            <table class="custom-table" style="font-size: 1rem;">
+        <!-- ============================================== -->
+        <!-- TAB 3: TRIAL BALANCE                           -->
+        <!-- ============================================== -->
+        {% if current_tab == 'tb' %}
+        <div class="glass-panel">
+            <div class="panel-header" style="text-align: center; margin-bottom: 25px;">
+                <h2 style="font-size: 1.3rem; font-weight: 800; color: white;">TRIAL BALANCE (DOUBLE-ENTRY AUDIT)</h2>
+                <span style="font-size: 0.85rem; color: var(--text-muted);">Reconciliation Status: {% if tb.is_balanced %}<strong style="color: var(--success);">BALANCED (Debits = Credits)</strong>{% else %}<strong style="color: var(--danger);">UNBALANCED</strong>{% endif %}</span>
+            </div>
+
+            <table class="statement-table">
+                <thead>
+                    <tr class="statement-header">
+                        <th>Account Code</th>
+                        <th>Account Name</th>
+                        <th>Type</th>
+                        <th style="text-align: right;">Debit Balance (₹)</th>
+                        <th style="text-align: right;">Credit Balance (₹)</th>
+                    </tr>
+                </thead>
                 <tbody>
-                    <!-- REVENUE SECTION -->
-                    <tr style="background: rgba(16, 185, 129, 0.1);">
-                        <td colspan="2" style="font-weight: 700; color: var(--success); font-size: 1.1rem;">1. REVENUE / INCOME</td>
-                        <td style="text-align: right; font-weight: 800; color: var(--success); font-size: 1.1rem;">₹{{ "%.2f"|format(pnl.revenue.total) }}</td>
-                    </tr>
-                    {% for r in pnl.revenue.categories %}
+                    {% for item in tb.lines %}
                     <tr>
-                        <td style="padding-left: 30px;">{{ r.category }}</td>
-                        <td style="text-align: right; color: var(--text-muted);">₹{{ "%.2f"|format(r.amount) }}</td>
-                        <td></td>
+                        <td><code>{{ item.code }}</code></td>
+                        <td>{{ item.name }}</td>
+                        <td><span class="kpi-badge badge-info">{{ item.major_type }}</span></td>
+                        <td style="text-align: right; color: {% if item.debit > 0 %}#34d399{% else %}#64748b{% endif %};">
+                            {% if item.debit > 0 %}₹{{ "{:,.2f}".format(item.debit) }}{% else %}—{% endif %}
+                        </td>
+                        <td style="text-align: right; color: {% if item.credit > 0 %}#f87171{% else %}#64748b{% endif %};">
+                            {% if item.credit > 0 %}₹{{ "{:,.2f}".format(item.credit) }}{% else %}—{% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
-
-                    <!-- DIRECT EXPENSES (COGS) SECTION -->
-                    <tr style="background: rgba(245, 158, 11, 0.1);">
-                        <td colspan="2" style="font-weight: 700; color: var(--warning); font-size: 1.1rem;">2. DIRECT EXPENSES (COST OF GOODS SOLD - COGS)</td>
-                        <td style="text-align: right; font-weight: 800; color: var(--warning); font-size: 1.1rem;">(₹{{ "%.2f"|format(pnl.cogs.total) }})</td>
-                    </tr>
-                    {% for c in pnl.cogs.categories %}
-                    <tr>
-                        <td style="padding-left: 30px;">{{ c.category }}</td>
-                        <td style="text-align: right; color: var(--text-muted);">₹{{ "%.2f"|format(c.amount) }}</td>
-                        <td></td>
-                    </tr>
-                    {% endfor %}
-
-                    <!-- GROSS PROFIT ROW -->
-                    <tr style="background: rgba(99, 102, 241, 0.15); border-top: 2px solid var(--primary); border-bottom: 2px solid var(--primary);">
-                        <td colspan="2" style="font-weight: 800; color: #818cf8; font-size: 1.2rem;">GROSS PROFIT (REVENUE - COGS)</td>
-                        <td style="text-align: right; font-weight: 800; color: #818cf8; font-size: 1.2rem;">₹{{ "%.2f"|format(pnl.gross_profit) }}</td>
-                    </tr>
-
-                    <!-- OPERATING EXPENSES SECTION -->
-                    <tr style="background: rgba(239, 68, 68, 0.1);">
-                        <td colspan="2" style="font-weight: 700; color: var(--danger); font-size: 1.1rem;">3. OPERATING EXPENSES (OVERHEADS)</td>
-                        <td style="text-align: right; font-weight: 800; color: var(--danger); font-size: 1.1rem;">(₹{{ "%.2f"|format(pnl.operating_expenses.total) }})</td>
-                    </tr>
-                    {% for o in pnl.operating_expenses.categories %}
-                    <tr>
-                        <td style="padding-left: 30px;">{{ o.category }}</td>
-                        <td style="text-align: right; color: var(--text-muted);">₹{{ "%.2f"|format(o.amount) }}</td>
-                        <td></td>
-                    </tr>
-                    {% endfor %}
-
-                    <!-- NET PROFIT ROW -->
-                    <tr style="background: linear-gradient(90deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2)); border-top: 3px double var(--success); border-bottom: 3px double var(--success);">
-                        <td colspan="2" style="font-weight: 800; color: white; font-size: 1.3rem;">NET PROFIT BEFORE TAX (GROSS PROFIT - OPERATING EXPENSES)</td>
-                        <td style="text-align: right; font-weight: 800; color: #34d399; font-size: 1.3rem;">₹{{ "%.2f"|format(pnl.net_profit) }}</td>
+                    <tr class="statement-highlight">
+                        <td colspan="3">TOTAL AUDIT SUM</td>
+                        <td style="text-align: right; color: var(--success);">₹{{ "{:,.2f}".format(tb.total_debit) }}</td>
+                        <td style="text-align: right; color: var(--danger);">₹{{ "{:,.2f}".format(tb.total_credit) }}</td>
                     </tr>
                 </tbody>
             </table>
         </div>
+        {% endif %}
 
-        <!-- Cash Flow Summary Panel -->
+        <!-- ============================================== -->
+        <!-- TAB 4: GST STATEMENT                          -->
+        <!-- ============================================== -->
+        {% if current_tab == 'gst' %}
         <div class="glass-panel">
-            <div class="panel-header">
-                <h3><i class="fas fa-university"></i> Cash Flow Breakdown by Payment Method</h3>
+            <div class="panel-header" style="text-align: center; margin-bottom: 25px;">
+                <h2 style="font-size: 1.3rem; font-weight: 800; color: white;">GST SUMMARY STATEMENT</h2>
+                <span style="font-size: 0.85rem; color: var(--text-muted);">Output GST minus Input GST Credit</span>
             </div>
-            <div class="table-responsive">
-                <table class="custom-table">
-                    <thead>
-                        <tr>
-                            <th>Payment Method</th>
-                            <th style="text-align: right;">Total Inflow (Income)</th>
-                            <th style="text-align: right;">Total Outflow (Expenses)</th>
-                            <th style="text-align: right;">Net Cash Flow</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for method, data in cash_flow.methods.items() %}
-                        <tr>
-                            <td style="font-weight: 600; color: white;">{{ method }}</td>
-                            <td style="text-align: right; color: var(--success);">+₹{{ "%.2f"|format(data.inflow) }}</td>
-                            <td style="text-align: right; color: var(--danger);">-₹{{ "%.2f"|format(data.outflow) }}</td>
-                            <td style="text-align: right; font-weight: 700; color: {% if data.net >= 0 %}var(--success){% else %}var(--danger){% endif %};">
-                                ₹{{ "%.2f"|format(data.net) }}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+
+            <table class="statement-table">
+                <tr class="statement-header"><td colspan="2">GST COMPUTATION SUMMARY</td><td style="text-align: right;">AMOUNT (₹)</td></tr>
+                <tr><td colspan="2">Total Output GST (Collected on Sales)</td><td style="text-align: right; color: var(--danger);">₹{{ "{:,.2f}".format(gst.total_output_gst) }}</td></tr>
+                <tr><td colspan="2">Less: Eligible Input GST (Paid on Purchases)</td><td style="text-align: right; color: var(--success);">₹{{ "{:,.2f}".format(gst.total_input_gst) }}</td></tr>
+                <tr class="statement-highlight" style="color: #fbbf24;">
+                    <td colspan="2">NET GST PAYABLE TO GOVERNMENT</td>
+                    <td style="text-align: right;">₹{{ "{:,.2f}".format(gst.net_gst_payable) }}</td>
+                </tr>
+                <tr><td colspan="2">CGST Payable (Central GST 50%)</td><td style="text-align: right;">₹{{ "{:,.2f}".format(gst.cgst_payable) }}</td></tr>
+                <tr><td colspan="2">SGST Payable (State GST 50%)</td><td style="text-align: right;">₹{{ "{:,.2f}".format(gst.sgst_payable) }}</td></tr>
+            </table>
         </div>
+        {% endif %}
     </div>
 </body>
 </html>

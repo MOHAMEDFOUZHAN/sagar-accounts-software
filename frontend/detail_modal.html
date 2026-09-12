@@ -1,0 +1,36 @@
+<!-- Global Reusable Record Details Modal Component -->
+<div id="globalDetailModal" class="detail-modal-backdrop" style="display: none;" onclick="handleModalBackdropClick(event)">
+    <div class="detail-modal-panel" role="dialog" aria-modal="true" aria-labelledby="globalDetailModalTitle">
+        <!-- Modal Header -->
+        <div class="detail-modal-header">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div id="globalDetailModalIcon" class="detail-modal-icon">
+                    <i class="fas fa-file-invoice"></i>
+                </div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <h3 id="globalDetailModalTitle" style="margin: 0; font-size: 1.2rem; font-weight: 700; color: #ffffff;">Record Details</h3>
+                        <span id="globalDetailModalBadge" class="badge" style="display: none;"></span>
+                    </div>
+                    <p id="globalDetailModalSubtitle" style="margin: 3px 0 0; font-size: 0.8rem; color: var(--text-muted);"></p>
+                </div>
+            </div>
+            <button type="button" onclick="closeRecordDetails()" class="detail-modal-close-btn" title="Close (Esc)">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body (Dynamic Sections) -->
+        <div id="globalDetailModalBody" class="detail-modal-body">
+            <!-- Dynamically populated sections -->
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="detail-modal-footer">
+            <div id="globalDetailModalCustomActions" style="display: flex; gap: 10px;"></div>
+            <button type="button" onclick="closeRecordDetails()" class="btn btn-secondary" style="padding: 8px 18px; font-size: 0.85rem;">
+                <i class="fas fa-times"></i> Close
+            </button>
+        </div>
+    </div>
+</div>

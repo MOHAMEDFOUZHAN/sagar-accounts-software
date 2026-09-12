@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Accounting Audit Trail</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .audit-badge {
+            font-size: 0.72rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .act-post { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .act-reverse { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
+        .act-correct { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); }
+        .act-close { background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4); }
+        .act-reopen { background: rgba(236, 72, 153, 0.2); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.4); }
+        .act-lock { background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.4); }
+        .act-restore { background: rgba(220, 38, 38, 0.25); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.5); }
+        .act-default { background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.4); }
+
+        .filter-bar {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .filter-group label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .filter-input, .filter-select {
+            background: var(--bg-main);
+            border: 1px solid var(--border-color);
+            color: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        .filter-input:focus, .filter-select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .audit-table-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .audit-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+        .audit-table th {
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--text-muted);
+            font-weight: 700;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            font-size: 0.72rem;
+            letter-spacing: 0.5px;
+        }
+        .audit-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+            color: #e2e8f0;
+            vertical-align: middle;
+        }
+        .audit-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* Modal for Event Inspection */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        .modal-card {
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 650px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+        }
+        .modal-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        .modal-footer {
+            padding: 14px 24px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        .diff-box {
+            background: #090d16;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            max-height: 180px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-title">
+                <h1>Accounting Audit Trail</h1>
+                <p>Immutable, append-only provenance record tracking all financial mutations, period closures, and reconciliations</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-secondary" onclick="window.location.reload();">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Toolbar -->
+        <form method="GET" action="/audit" class="filter-bar">
+            <div class="filter-group" style="flex: 1; min-width: 150px;">
+                <label>Search Keyword</label>
+                <input type="text" name="search" class="filter-input" placeholder="User, reason, entity ID..." value="{{ filter_search }}">
+            </div>
+
+            <div class="filter-group">
+                <label>Action</label>
+                <select name="action" class="filter-select">
+                    <option value="">All Actions</option>
+                    <option value="POST" {% if filter_action == 'POST' %}selected{% endif %}>POST (Voucher Posting)</option>
+                    <option value="REVERSE" {% if filter_action == 'REVERSE' %}selected{% endif %}>REVERSE (Reversals)</option>
+                    <option value="CORRECT" {% if filter_action == 'CORRECT' %}selected{% endif %}>CORRECT (Corrections)</option>
+                    <option value="CLOSE_PERIOD" {% if filter_action == 'CLOSE_PERIOD' %}selected{% endif %}>CLOSE_PERIOD</option>
+                    <option value="REOPEN_PERIOD" {% if filter_action == 'REOPEN_PERIOD' %}selected{% endif %}>REOPEN_PERIOD</option>
+                    <option value="LOCK_PERIOD" {% if filter_action == 'LOCK_PERIOD' %}selected{% endif %}>LOCK_PERIOD</option>
+                    <option value="UNLOCK_PERIOD" {% if filter_action == 'UNLOCK_PERIOD' %}selected{% endif %}>UNLOCK_PERIOD</option>
+                    <option value="OPENING_BALANCE_POST" {% if filter_action == 'OPENING_BALANCE_POST' %}selected{% endif %}>OPENING_BALANCE_POST</option>
+                    <option value="RECONCILE_ADJUST" {% if filter_action == 'RECONCILE_ADJUST' %}selected{% endif %}>RECONCILE_ADJUST</option>
+                    <option value="BACKUP_RESTORE" {% if filter_action == 'BACKUP_RESTORE' %}selected{% endif %}>BACKUP_RESTORE</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>Entity Type</label>
+                <select name="entity_type" class="filter-select">
+                    <option value="">All Entities</option>
+                    <option value="journal_entry" {% if filter_entity_type == 'journal_entry' %}selected{% endif %}>journal_entry</option>
+                    <option value="accounting_period" {% if filter_entity_type == 'accounting_period' %}selected{% endif %}>accounting_period</option>
+                    <option value="opening_balance" {% if filter_entity_type == 'opening_balance' %}selected{% endif %}>opening_balance</option>
+                    <option value="reconciliation" {% if filter_entity_type == 'reconciliation' %}selected{% endif %}>reconciliation</option>
+                    <option value="chart_of_accounts" {% if filter_entity_type == 'chart_of_accounts' %}selected{% endif %}>chart_of_accounts</option>
+                    <option value="database_backup" {% if filter_entity_type == 'database_backup' %}selected{% endif %}>database_backup</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>User</label>
+                <input type="text" name="user" class="filter-input" placeholder="Username" value="{{ filter_user }}" style="width: 110px;">
+            </div>
+
+            <div class="filter-group">
+                <label>From Date</label>
+                <input type="date" name="start_date" class="filter-input" value="{{ filter_start_date }}">
+            </div>
+
+            <div class="filter-group">
+                <label>To Date</label>
+                <input type="date" name="end_date" class="filter-input" value="{{ filter_end_date }}">
+            </div>
+
+            <div style="align-self: flex-end; display: flex; gap: 8px;">
+                <button type="submit" class="btn btn-primary" style="padding: 8px 16px;">
+                    <i class="fas fa-filter"></i> Filter
+                </button>
+                <a href="/audit" class="btn btn-secondary" style="padding: 8px 14px;">Reset</a>
+            </div>
+        </form>
+
+        <!-- Audit Table -->
+        <div class="audit-table-container">
+            <div class="table-responsive">
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 140px;">Timestamp</th>
+                            <th style="width: 120px;">Action</th>
+                            <th style="width: 140px;">Entity</th>
+                            <th style="width: 110px;">User</th>
+                            <th>Reason / Description</th>
+                            <th style="width: 120px; text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if logs and logs|length > 0 %}
+                            {% for log in logs %}
+                                <tr>
+                                    <td style="font-size: 0.8rem; color: var(--text-muted); font-family: monospace;">
+                                        {{ log.created_at }}
+                                    </td>
+                                    <td>
+                                        {% if log.action == 'POST' %}
+                                            <span class="audit-badge act-post"><i class="fas fa-check-circle"></i> POST</span>
+                                        {% elif log.action == 'REVERSE' %}
+                                            <span class="audit-badge act-reverse"><i class="fas fa-undo"></i> REVERSE</span>
+                                        {% elif log.action == 'CORRECT' %}
+                                            <span class="audit-badge act-correct"><i class="fas fa-edit"></i> CORRECT</span>
+                                        {% elif 'CLOSE' in log.action %}
+                                            <span class="audit-badge act-close"><i class="fas fa-lock"></i> CLOSE</span>
+                                        {% elif 'REOPEN' in log.action %}
+                                            <span class="audit-badge act-reopen"><i class="fas fa-unlock"></i> REOPEN</span>
+                                        {% elif 'LOCK' in log.action %}
+                                            <span class="audit-badge act-lock"><i class="fas fa-shield-alt"></i> LOCK</span>
+                                        {% elif 'RESTORE' in log.action %}
+                                            <span class="audit-badge act-restore"><i class="fas fa-database"></i> RESTORE</span>
+                                        {% else %}
+                                            <span class="audit-badge act-default">{{ log.action }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 600; color: #f8fafc;">{{ log.entity_type }}</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">ID: #{{ log.entity_id or '—' }}</div>
+                                    </td>
+                                    <td>
+                                        <span style="font-weight: 600; color: var(--accent);">{{ log.user_name or log.user_id or 'system' }}</span>
+                                    </td>
+                                    <td>
+                                        <div style="max-width: 450px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                            {{ log.reason or log.new_state or 'No notes recorded' }}
+                                        </div>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <button class="btn btn-sm btn-secondary" onclick='inspectLog({{ log|tojson|safe }})' title="View Complete Audit Metadata">
+                                            <i class="fas fa-info-circle"></i> Details
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                                    <i class="fas fa-clipboard-list" style="font-size: 2.5rem; margin-bottom: 12px; display: block; opacity: 0.4;"></i>
+                                    No audit trail records matched your filter criteria.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination Bar -->
+            <div class="pagination-container">
+                <div>
+                    Showing Page <strong>{{ current_page }}</strong> of <strong>{{ total_pages }}</strong> (Total: {{ total_count }} logged events)
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    {% if current_page > 1 %}
+                        <a href="/audit?page={{ current_page - 1 }}&action={{ filter_action }}&entity_type={{ filter_entity_type }}&user={{ filter_user }}&search={{ filter_search }}&start_date={{ filter_start_date }}&end_date={{ filter_end_date }}" class="btn btn-sm btn-secondary">
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </a>
+                    {% endif %}
+                    {% if current_page < total_pages %}
+                        <a href="/audit?page={{ current_page + 1 }}&action={{ filter_action }}&entity_type={{ filter_entity_type }}&user={{ filter_user }}&search={{ filter_search }}&start_date={{ filter_start_date }}&end_date={{ filter_end_date }}" class="btn btn-sm btn-secondary">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Event Inspection -->
+    <div class="modal-overlay" id="auditModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 style="margin: 0; font-size: 1.15rem; color: #f8fafc;" id="modalTitle">Audit Record Details</h3>
+                <button onclick="closeModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modalContent">
+                <!-- Populated dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function inspectLog(log) {
+            document.getElementById('modalTitle').innerText = `Audit Event #${log.id} — ${log.action}`;
+            let html = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Action & Entity</div>
+                        <div style="font-weight: 700; color: #f8fafc;">${log.action} on ${log.entity_type} (#${log.entity_id || 'N/A'})</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Operator / User</div>
+                        <div style="font-weight: 700; color: var(--accent);">${log.user_name || log.user_id || 'System'}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Logged Timestamp</div>
+                        <div style="font-family: monospace; color: #cbd5e1;">${log.created_at}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Source Module</div>
+                        <div style="color: #cbd5e1;">${log.source_module || 'accounts'}</div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Reason / Audit Comment</div>
+                    <div style="background: rgba(15,23,42,0.8); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; color: #e2e8f0;">
+                        ${log.reason || 'No specific comment provided.'}
+                    </div>
+                </div>
+            `;
+
+            if (log.previous_state) {
+                html += `
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 0.75rem; color: #f87171; text-transform: uppercase; margin-bottom: 4px;"><i class="fas fa-minus-circle"></i> Previous State</div>
+                        <div class="diff-box">${escapeHtml(log.previous_state)}</div>
+                    </div>
+                `;
+            }
+
+            if (log.new_state) {
+                html += `
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-size: 0.75rem; color: #4ade80; text-transform: uppercase; margin-bottom: 4px;"><i class="fas fa-plus-circle"></i> New State</div>
+                        <div class="diff-box">${escapeHtml(log.new_state)}</div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('modalContent').innerHTML = html;
+            document.getElementById('auditModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('auditModal').style.display = 'none';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('auditModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        };
+    </script>
+</body>
+</html>

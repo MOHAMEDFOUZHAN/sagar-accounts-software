@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Trial Balance Control Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .tb-type-pill {
+            font-size: 0.72rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .type-Asset { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+        .type-Liability { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+        .type-Equity { background: rgba(167, 139, 250, 0.15); color: #c084fc; }
+        .type-Revenue { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+        .type-Direct_Expense, .type-Operating_Expense, .type-Financial_Cost { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+        @media print {
+            .sidebar, .period-filter-bar, .top-bar button, .quick-action-btn, .formula-card {
+                display: none !important;
+            }
+            .main-content {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <!-- Top Bar -->
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-title">
+                <h1>Trial Balance Control Report</h1>
+                <p>Double-entry mathematical verification ensuring Total Debits equal Total Credits across all ledgers</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="window.print()" class="btn btn-secondary">
+                    <i class="fas fa-print"></i> Print Trial Balance
+                </button>
+            </div>
+        </div>
+
+        <!-- Period Filter Bar -->
+        <div class="period-filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+            <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-right: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fas fa-calendar-alt"></i> Period:
+            </span>
+            <a href="/trial-balance?filter=all&view_mode={{ view_mode }}" class="period-pill {% if current_filter == 'all' or not current_filter %}active{% endif %}">All Time</a>
+            <a href="/trial-balance?filter=today&view_mode={{ view_mode }}" class="period-pill {% if current_filter == 'today' %}active{% endif %}">Today</a>
+            <a href="/trial-balance?filter=this_month&view_mode={{ view_mode }}" class="period-pill {% if current_filter == 'this_month' %}active{% endif %}">This Month</a>
+            <a href="/trial-balance?filter=this_year&view_mode={{ view_mode }}" class="period-pill {% if current_filter == 'this_year' %}active{% endif %}">This FY</a>
+
+            <form method="GET" action="/trial-balance" style="display: inline-flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap;">
+                <input type="hidden" name="view_mode" value="{{ view_mode }}">
+                
+                {% if financial_years %}
+                <select name="fy_id" class="form-control" style="padding: 4px 8px; font-size: 0.8rem; height: auto; max-width: 140px;" onchange="this.form.submit()">
+                    <option value="">-- All FYs --</option>
+                    {% for fy in financial_years %}
+                    <option value="{{ fy.id }}" {% if selected_fy_id|string == fy.id|string %}selected{% endif %}>{{ fy.year_name }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+
+                {% if accounting_periods %}
+                <select name="period_id" class="form-control" style="padding: 4px 8px; font-size: 0.8rem; height: auto; max-width: 150px;" onchange="this.form.submit()">
+                    <option value="">-- All Periods --</option>
+                    {% for p in accounting_periods %}
+                    <option value="{{ p.id }}" {% if selected_period_id|string == p.id|string %}selected{% endif %}>{{ p.period_name }}</option>
+                    {% endfor %}
+                </select>
+                {% endif %}
+
+                <span style="color: var(--text-muted); font-size: 0.8rem;">As of:</span>
+                <input type="date" name="end_date" class="form-control" style="padding: 4px 8px; font-size: 0.8rem; height: auto;" value="{{ end_date or as_of_date }}">
+                <button type="submit" class="btn btn-primary" style="padding: 4px 10px; font-size: 0.8rem;">Update</button>
+            </form>
+
+            <div style="display: flex; gap: 6px; margin-left: 10px; border-left: 1px solid var(--glass-border); padding-left: 10px;">
+                <a href="/trial-balance?filter={{ current_filter }}&fy_id={{ selected_fy_id or '' }}&period_id={{ selected_period_id or '' }}&end_date={{ end_date or as_of_date }}&view_mode=closing"
+                   class="period-pill {% if view_mode != 'movement' %}active{% endif %}" style="font-size: 0.75rem;">
+                    <i class="fas fa-columns"></i> 2-Col (Closing)
+                </a>
+                <a href="/trial-balance?filter={{ current_filter }}&fy_id={{ selected_fy_id or '' }}&period_id={{ selected_period_id or '' }}&end_date={{ end_date or as_of_date }}&view_mode=movement"
+                   class="period-pill {% if view_mode == 'movement' %}active{% endif %}" style="font-size: 0.75rem;">
+                    <i class="fas fa-exchange-alt"></i> 6-Col (Movements)
+                </a>
+            </div>
+        </div>
+
+        <!-- Accounting Integrity Banner -->
+        {% if tb.is_balanced %}
+        <div class="balance-check-banner status-balanced">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-check-circle" style="font-size: 1.3rem;"></i>
+                <div>
+                    <div><strong>Accounting Control Status: BOOKS IN PERFECT BALANCE</strong></div>
+                    <div style="font-size: 0.8rem; opacity: 0.85;">Total Debits exactly match Total Credits across all audited account ledgers. Zero discrepancy detected.</div>
+                </div>
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 800;">
+                Dr ₹{{ "{:,.2f}".format(tb.total_debit) }} = Cr ₹{{ "{:,.2f}".format(tb.total_credit) }}
+            </div>
+        </div>
+        {% else %}
+        <div class="balance-check-banner status-unbalanced">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 1.3rem;"></i>
+                <div>
+                    <div><strong>Accounting Warning: BOOKS OUT OF BALANCE</strong></div>
+                    <div style="font-size: 0.8rem; opacity: 0.85;">Discrepancy detected between debit and credit totals. Inspect unposted or asymmetrical journal vouchers.</div>
+                </div>
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 800; color: #f87171;">
+                Diff: ₹{{ "{:,.2f}".format(tb.difference|abs if tb.difference is defined else (tb.total_debit - tb.total_credit)|abs) }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 25px;">
+            <div class="kpi-card" style="border-top: 3px solid #34d399;">
+                <div class="kpi-icon profit"><i class="fas fa-arrow-down"></i></div>
+                <div class="kpi-title">Total Debits (Dr)</div>
+                <div class="kpi-value" style="color: #34d399;">₹{{ "{:,.2f}".format(tb.total_debit) }}</div>
+                <span class="kpi-badge badge-success"><i class="fas fa-check"></i> Assets & Expenses</span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid #f87171;">
+                <div class="kpi-icon payable"><i class="fas fa-arrow-up"></i></div>
+                <div class="kpi-title">Total Credits (Cr)</div>
+                <div class="kpi-value" style="color: #f87171;">₹{{ "{:,.2f}".format(tb.total_credit) }}</div>
+                <span class="kpi-badge badge-danger"><i class="fas fa-check"></i> Liabilities, Equity & Revenue</span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid var(--accent);">
+                <div class="kpi-icon profit" style="background: rgba(6, 182, 212, 0.2); color: var(--accent);"><i class="fas fa-layer-group"></i></div>
+                <div class="kpi-title">Audited Accounts</div>
+                <div class="kpi-value" style="color: #38bdf8;">{{ tb.lines|length }}</div>
+                <span class="kpi-badge badge-info">Active Chart of Accounts</span>
+            </div>
+        </div>
+
+        <!-- Trial Balance Table Panel -->
+        <div class="glass-panel">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.15rem;"><i class="fas fa-tasks" style="color: var(--primary);"></i> Trial Balance Ledger Accounts</h3>
+                    <p style="margin: 4px 0 0; font-size: 0.8rem; color: var(--text-muted);">
+                        {% if view_mode == 'movement' %}6-Column Movement View (Opening, Period Movement, Closing){% else %}Standard 2-Column Closing Balances{% endif %} — As of {{ as_of_date }}
+                    </p>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <a href="/health-check" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;">
+                        <i class="fas fa-shield-alt"></i> Consistency Audit
+                    </a>
+                    <span class="badge {% if tb.is_balanced %}badge-success{% else %}badge-danger{% endif %}" style="font-size: 0.8rem; padding: 6px 14px;">
+                        {% if tb.is_balanced %}<i class="fas fa-check"></i> Balanced{% else %}<i class="fas fa-times"></i> Unbalanced{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    {% if view_mode == 'movement' %}
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--glass-border);">
+                            <th rowspan="2" style="width: 100px;">Code</th>
+                            <th rowspan="2">Account Title</th>
+                            <th rowspan="2" style="width: 120px;">Type</th>
+                            <th colspan="2" style="text-align: center; border-left: 1px solid var(--glass-border); border-right: 1px solid var(--glass-border); background: rgba(255,255,255,0.02);">Opening Balance</th>
+                            <th colspan="2" style="text-align: center; border-right: 1px solid var(--glass-border); background: rgba(99,102,241,0.05);">Period Activity</th>
+                            <th colspan="2" style="text-align: center; border-right: 1px solid var(--glass-border); background: rgba(56,189,248,0.05);">Closing Balance</th>
+                            <th rowspan="2" class="col-action" style="width: 80px;">Action</th>
+                        </tr>
+                        <tr>
+                            <th class="col-currency" style="width: 110px; border-left: 1px solid var(--glass-border);">Dr (₹)</th>
+                            <th class="col-currency" style="width: 110px; border-right: 1px solid var(--glass-border);">Cr (₹)</th>
+                            <th class="col-currency" style="width: 110px;">Dr (₹)</th>
+                            <th class="col-currency" style="width: 110px; border-right: 1px solid var(--glass-border);">Cr (₹)</th>
+                            <th class="col-currency" style="width: 110px;">Dr (₹)</th>
+                            <th class="col-currency" style="width: 110px; border-right: 1px solid var(--glass-border);">Cr (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if tb.lines %}
+                            {% for row in tb.lines %}
+                            <tr>
+                                <td><span class="table-code">{{ row.code }}</span></td>
+                                <td><strong style="color: #f1f5f9;">{{ row.name }}</strong></td>
+                                <td>
+                                    <span class="tb-type-pill type-{{ row.major_type|replace(' ', '_') }}">
+                                        {{ row.major_type }}
+                                    </span>
+                                </td>
+                                <!-- Opening Dr / Cr -->
+                                <td class="col-currency" style="border-left: 1px solid var(--glass-border); color: {% if row.opening_debit > 0 %}#34d399{% else %}var(--text-muted){% endif %};">
+                                    {% if row.opening_debit > 0 %}₹{{ "{:,.2f}".format(row.opening_debit) }}{% else %}—{% endif %}
+                                </td>
+                                <td class="col-currency" style="border-right: 1px solid var(--glass-border); color: {% if row.opening_credit > 0 %}#f87171{% else %}var(--text-muted){% endif %};">
+                                    {% if row.opening_credit > 0 %}₹{{ "{:,.2f}".format(row.opening_credit) }}{% else %}—{% endif %}
+                                </td>
+                                <!-- Period Movement Dr / Cr -->
+                                <td class="col-currency" style="color: {% if row.period_debit > 0 %}#38bdf8{% else %}var(--text-muted){% endif %}; font-weight: 500;">
+                                    {% if row.period_debit > 0 %}₹{{ "{:,.2f}".format(row.period_debit) }}{% else %}—{% endif %}
+                                </td>
+                                <td class="col-currency" style="border-right: 1px solid var(--glass-border); color: {% if row.period_credit > 0 %}#fbbf24{% else %}var(--text-muted){% endif %}; font-weight: 500;">
+                                    {% if row.period_credit > 0 %}₹{{ "{:,.2f}".format(row.period_credit) }}{% else %}—{% endif %}
+                                </td>
+                                <!-- Closing Dr / Cr -->
+                                <td class="col-currency" style="color: {% if row.closing_debit > 0 %}#34d399{% else %}var(--text-muted){% endif %}; font-weight: 700;">
+                                    {% if row.closing_debit > 0 %}₹{{ "{:,.2f}".format(row.closing_debit) }}{% else %}—{% endif %}
+                                </td>
+                                <td class="col-currency" style="border-right: 1px solid var(--glass-border); color: {% if row.closing_credit > 0 %}#f87171{% else %}var(--text-muted){% endif %}; font-weight: 700;">
+                                    {% if row.closing_credit > 0 %}₹{{ "{:,.2f}".format(row.closing_credit) }}{% else %}—{% endif %}
+                                </td>
+                                <td class="col-action">
+                                    <button type="button"
+                                            onclick="showDrilldown('{{ row.code }}', '{{ row.name|replace('\'', '\\\'') }}', '{{ start_date }}', '{{ end_date }}')"
+                                            class="btn-details"
+                                            title="View contributing transactions for {{ row.name }}">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="10" class="text-center" style="padding: 40px; color: var(--text-muted);">
+                                    <i class="fas fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 8px; opacity: 0.4;"></i>
+                                    No ledger activity recorded as of this date.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: rgba(15, 23, 42, 0.9); font-weight: 800; font-size: 0.95rem;">
+                            <td colspan="3" style="text-align: right; color: var(--accent); letter-spacing: 0.5px;">TOTALS VERIFICATION:</td>
+                            <td class="col-currency" style="border-left: 1px solid var(--glass-border); color: #34d399;">₹{{ "{:,.2f}".format(tb.total_opening_debit or 0.0) }}</td>
+                            <td class="col-currency" style="border-right: 1px solid var(--glass-border); color: #f87171;">₹{{ "{:,.2f}".format(tb.total_opening_credit or 0.0) }}</td>
+                            <td class="col-currency" style="color: #38bdf8;">₹{{ "{:,.2f}".format(tb.total_period_debit or 0.0) }}</td>
+                            <td class="col-currency" style="border-right: 1px solid var(--glass-border); color: #fbbf24;">₹{{ "{:,.2f}".format(tb.total_period_credit or 0.0) }}</td>
+                            <td class="col-currency" style="color: #34d399; font-weight: 900;">₹{{ "{:,.2f}".format(tb.total_closing_debit or tb.total_debit) }}</td>
+                            <td class="col-currency" style="border-right: 1px solid var(--glass-border); color: #f87171; font-weight: 900;">₹{{ "{:,.2f}".format(tb.total_closing_credit or tb.total_credit) }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                    {% else %}
+                    <!-- Standard 2-Column View -->
+                    <thead>
+                        <tr>
+                            <th style="width: 120px;">Code</th>
+                            <th>Account Title</th>
+                            <th style="width: 150px;">Classification</th>
+                            <th class="col-currency" style="width: 150px;">Debit Total (₹)</th>
+                            <th class="col-currency" style="width: 150px;">Credit Total (₹)</th>
+                            <th class="col-currency" style="width: 160px;">Net Balance (₹)</th>
+                            <th class="col-action" style="width: 100px;">Drill-Down</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if tb.lines %}
+                            {% for row in tb.lines %}
+                            {% set is_debit_norm = row.major_type in ['Asset', 'Direct Expense', 'Operating Expense', 'Financial Cost'] %}
+                            {% set net_bal = (row.debit - row.credit) if is_debit_norm else (row.credit - row.debit) %}
+                            <tr>
+                                <td><span class="table-code">{{ row.code }}</span></td>
+                                <td><strong style="color: #f1f5f9;">{{ row.name }}</strong></td>
+                                <td>
+                                    <span class="tb-type-pill type-{{ row.major_type|replace(' ', '_') }}">
+                                        {{ row.major_type }}
+                                    </span>
+                                </td>
+                                <td class="col-currency" style="color: {% if row.debit > 0 %}#34d399{% else %}var(--text-muted){% endif %}; font-weight: 600;">
+                                    {% if row.debit > 0 %}₹{{ "{:,.2f}".format(row.debit) }}{% else %}—{% endif %}
+                                </td>
+                                <td class="col-currency" style="color: {% if row.credit > 0 %}#f87171{% else %}var(--text-muted){% endif %}; font-weight: 600;">
+                                    {% if row.credit > 0 %}₹{{ "{:,.2f}".format(row.credit) }}{% else %}—{% endif %}
+                                </td>
+                                <td class="col-currency" style="font-weight: 700; color: #f8fafc;">
+                                    ₹{{ "{:,.2f}".format(net_bal|abs) }}
+                                    <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 400;">
+                                        {% if is_debit_norm %}(Dr){% else %}(Cr){% endif %}
+                                    </span>
+                                </td>
+                                <td class="col-action">
+                                    <button type="button"
+                                            onclick="showDrilldown('{{ row.code }}', '{{ row.name|replace('\'', '\\\'') }}', '{{ start_date }}', '{{ end_date }}')"
+                                            class="btn-details"
+                                            title="View contributing transactions for {{ row.name }}">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center" style="padding: 40px; color: var(--text-muted);">
+                                    <i class="fas fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 8px; opacity: 0.4;"></i>
+                                    No ledger activity recorded as of this date.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: rgba(15, 23, 42, 0.85); font-weight: 800; font-size: 1rem;">
+                            <td colspan="3" style="text-align: right; color: var(--accent); letter-spacing: 0.5px;">TOTAL TRIAL BALANCE VERIFICATION:</td>
+                            <td class="col-currency" style="color: #34d399; font-size: 1.05rem;">₹{{ "{:,.2f}".format(tb.total_debit) }}</td>
+                            <td class="col-currency" style="color: #f87171; font-size: 1.05rem;">₹{{ "{:,.2f}".format(tb.total_credit) }}</td>
+                            <td class="col-currency" style="color: {% if tb.is_balanced %}#34d399{% else %}#f87171{% endif %};">
+                                {% if tb.is_balanced %}₹0.00 (Balanced){% else %}Diff: ₹{{ "{:,.2f}".format((tb.total_debit - tb.total_credit)|abs) }}{% endif %}
+                            </td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

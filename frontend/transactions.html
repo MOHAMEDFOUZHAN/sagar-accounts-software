@@ -23,13 +23,13 @@
         </div>
 
         <!-- Advanced Filter Bar -->
-        <div class="glass-panel" style="padding: 20px; margin-bottom: 25px;">
-            <form method="GET" action="/transactions" style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
-                <div style="flex: 2; min-width: 220px;">
-                    <label class="form-label">Search Ledger</label>
-                    <input type="text" name="search" class="form-control" placeholder="Txn ID, Description, Reference, Category..." value="{{ filters.search or '' }}">
+        <div class="glass-panel" style="padding: 20px 24px; margin-bottom: 25px;">
+            <form method="GET" action="/transactions" class="filter-bar-grid">
+                <div class="filter-field-lg">
+                    <label class="form-label"><i class="fas fa-search"></i> Search Ledger</label>
+                    <input type="text" name="search" class="form-control" placeholder="Txn ID, Description, Reference..." value="{{ filters.search or '' }}">
                 </div>
-                <div style="flex: 1; min-width: 140px;">
+                <div class="filter-field-sm">
                     <label class="form-label">Txn Type</label>
                     <select name="txn_type" class="form-select">
                         <option value="">All Types</option>
@@ -39,38 +39,38 @@
                         <option value="Liability_Payment" {% if filters.txn_type == 'Liability_Payment' %}selected{% endif %}>Liability Payment</option>
                     </select>
                 </div>
-                <div style="flex: 1; min-width: 150px;">
+                <div class="filter-field-sm">
                     <label class="form-label">Account Type</label>
                     <select name="account_type" class="form-select">
-                        <option value="">All Account Types</option>
+                        <option value="">All Types</option>
                         <option value="Revenue" {% if filters.account_type == 'Revenue' %}selected{% endif %}>Revenue</option>
-                        <option value="Direct Expense" {% if filters.account_type == 'Direct Expense' %}selected{% endif %}>Direct Expense (COGS)</option>
-                        <option value="Operating Expense" {% if filters.account_type == 'Operating Expense' %}selected{% endif %}>Operating Expense</option>
+                        <option value="Direct Expense" {% if filters.account_type == 'Direct Expense' %}selected{% endif %}>Direct (COGS)</option>
+                        <option value="Operating Expense" {% if filters.account_type == 'Operating Expense' %}selected{% endif %}>OpEx</option>
                         <option value="Asset" {% if filters.account_type == 'Asset' %}selected{% endif %}>Asset</option>
                         <option value="Liability" {% if filters.account_type == 'Liability' %}selected{% endif %}>Liability</option>
                     </select>
                 </div>
-                <div style="flex: 1; min-width: 130px;">
-                    <label class="form-label">Payment Method</label>
+                <div class="filter-field-sm">
+                    <label class="form-label">Payment</label>
                     <select name="payment_method" class="form-select">
                         <option value="">All Methods</option>
                         <option value="Cash" {% if filters.payment_method == 'Cash' %}selected{% endif %}>Cash</option>
                         <option value="UPI" {% if filters.payment_method == 'UPI' %}selected{% endif %}>UPI</option>
-                        <option value="Bank Transfer" {% if filters.payment_method == 'Bank Transfer' %}selected{% endif %}>Bank Transfer</option>
+                        <option value="Bank Transfer" {% if filters.payment_method == 'Bank Transfer' %}selected{% endif %}>Bank</option>
                         <option value="Card" {% if filters.payment_method == 'Card' %}selected{% endif %}>Card</option>
                     </select>
                 </div>
-                <div style="min-width: 130px;">
+                <div class="filter-field-sm">
                     <label class="form-label">Start Date</label>
                     <input type="date" name="start_date" class="form-control" value="{{ filters.start_date or '' }}">
                 </div>
-                <div style="min-width: 130px;">
+                <div class="filter-field-sm">
                     <label class="form-label">End Date</label>
                     <input type="date" name="end_date" class="form-control" value="{{ filters.end_date or '' }}">
                 </div>
-                <div style="display: flex; gap: 8px; align-self: flex-end; margin-bottom: 2px;">
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i></button>
-                    <a href="/transactions" class="btn btn-secondary" title="Reset Filters"><i class="fas fa-redo"></i></a>
+                <div class="filter-actions">
+                    <button type="submit" class="btn btn-primary" style="padding: 12px 18px;"><i class="fas fa-search"></i></button>
+                    <a href="/transactions" class="btn btn-secondary" style="padding: 12px 16px;" title="Reset Filters"><i class="fas fa-redo"></i></a>
                 </div>
             </form>
         </div>
@@ -78,64 +78,55 @@
         <!-- Ledger Table -->
         <div class="glass-panel">
             <div class="panel-header">
-                <h3><i class="fas fa-list-alt"></i> Financial Ledger Entries ({{ transactions|length }})</h3>
-            </div>
-
-            <div class="table-responsive">
-                <table class="custom-table">
+                <h3><i class="fas fa-list-alt" style="color: var(--primary);"></i> Financial Ledger Entries ({{ transactions|length }})</h3>
+            </div>            <div class="table-responsive">
+                <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Txn ID</th>
-                            <th>Date & Time</th>
-                            <th>Category</th>
-                            <th>Account Type</th>
-                            <th>Txn Type</th>
-                            <th>Payment</th>
-                            <th>Reference</th>
-                            <th>Description</th>
-                            <th style="text-align: right;">Amount (₹)</th>
-                            <th style="text-align: center;">Action</th>
+                            <th style="width: 140px;">Date & Time</th>
+                            <th style="width: 150px;">Category</th>
+                            <th>Description / Particulars</th>
+                            <th style="width: 110px;">Payment</th>
+                            <th class="col-currency" style="width: 140px;">Amount</th>
+                            <th class="col-action" style="width: 140px;">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for t in transactions %}
                         <tr id="row-txn-{{ t.id }}">
-                            <td style="font-weight: 600; color: var(--accent);">{{ t.txn_number }}</td>
-                            <td style="font-size: 0.85rem;">{{ t.txn_date }}</td>
-                            <td><span class="badge badge-purple">{{ t.category_name }}</span></td>
+                            <td class="col-nowrap" style="font-size: 0.85rem; color: var(--text-muted);">{{ t.txn_date }}</td>
                             <td>
-                                {% if t.account_type == 'Revenue' %}
-                                    <span class="badge badge-success">Revenue</span>
-                                {% elif t.account_type == 'Direct Expense' %}
-                                    <span class="badge badge-warning">Direct COGS</span>
-                                {% elif t.account_type == 'Operating Expense' %}
-                                    <span class="badge badge-danger">Operating Exp</span>
-                                {% else %}
-                                    <span class="badge badge-info">{{ t.account_type }}</span>
-                                {% endif %}
+                                <span class="badge badge-purple">{{ t.category_name }}</span>
+                                <span style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">{{ t.txn_number }}</span>
                             </td>
                             <td>
-                                {% if t.txn_type == 'Income' %}
-                                    <span class="badge badge-success">CREDIT</span>
-                                {% else %}
-                                    <span class="badge badge-danger">DEBIT</span>
+                                <span class="table-truncate" title="{{ t.description }}" style="font-weight: 500;">
+                                    {{ t.description }}
+                                </span>
+                                {% if t.reference_no %}
+                                    <span style="display: block; font-size: 0.72rem; color: var(--accent);">Ref: {{ t.reference_no }}</span>
                                 {% endif %}
                             </td>
-                            <td>{{ t.payment_method }}</td>
-                            <td style="font-size: 0.85rem; color: var(--text-muted);">{{ t.reference_no or '-' }}</td>
-                            <td>{{ t.description }}</td>
-                            <td style="text-align: right; font-weight: 700; color: {% if t.txn_type == 'Income' %}var(--success){% else %}var(--danger){% endif %};">
+                            <td><span class="badge badge-info" style="font-size: 0.72rem;">{{ t.payment_method }}</span></td>
+                            <td style="text-align: right; font-weight: 700; font-size: 0.95rem; color: {% if t.txn_type == 'Income' %}var(--success){% else %}var(--danger){% endif %};">
                                 {% if t.txn_type == 'Income' %}+{% else %}-{% endif %}₹{{ "%.2f"|format(t.amount) }}
                             </td>
-                            <td style="text-align: center;">
-                                <button onclick="deleteTxn({{ t.id }})" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.75rem;" title="Delete Entry">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
+                            <td class="col-action">
+                                <div class="table-actions-group">
+                                    <button type="button"
+                                            onclick="viewTxnDetails('{{ t.txn_number }}', '{{ t.txn_date }}', '{{ t.category_name|replace('\'', '\\\'') }}', '{{ t.account_type }}', '{{ t.txn_type }}', '{{ t.payment_method }}', '{{ (t.reference_no or '')|replace('\'', '\\\'') }}', '{{ t.description|replace('\'', '\\\'') }}', {{ t.amount }})"
+                                            class="btn-details" title="View Full Transaction Details">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                    <button onclick="deleteTxn({{ t.id }})" class="btn btn-danger" style="padding: 4px 8px; font-size: 0.75rem;" title="Delete Entry">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
                                 No financial transactions matching search parameters.
                             </td>
                         </tr>
@@ -147,6 +138,53 @@
     </div>
 
     <script>
+        function viewTxnDetails(txnNo, date, category, accountType, txnType, payment, ref, desc, amount) {
+            showRecordDetails({
+                title: 'Transaction Entry: ' + txnNo,
+                subtitle: 'Financial Voucher Transaction Record',
+                icon: 'fas fa-list-alt',
+                iconColor: txnType === 'Income' ? 'var(--success)' : 'var(--danger)',
+                badge: {
+                    text: txnType === 'Income' ? 'CREDIT / INFLOW' : 'DEBIT / OUTFLOW',
+                    class: txnType === 'Income' ? 'badge-success' : 'badge-danger'
+                },
+                sections: [
+                    {
+                        title: 'Transaction Identification',
+                        icon: 'fas fa-tag',
+                        fields: [
+                            { label: 'Transaction Number', value: txnNo, code: true },
+                            { label: 'Date & Time', value: date },
+                            { label: 'Reference #', value: ref || '—', bold: true },
+                            { label: 'Payment Method', value: payment || 'Cash' }
+                        ]
+                    },
+                    {
+                        title: 'Accounting Classification',
+                        icon: 'fas fa-folder-open',
+                        fields: [
+                            { label: 'Category', value: category, badgeClass: 'badge-purple' },
+                            { label: 'Account Type', value: accountType }
+                        ]
+                    },
+                    {
+                        title: 'Financial Movement',
+                        icon: 'fas fa-coins',
+                        fields: [
+                            { label: 'Amount', value: (txnType === 'Income' ? '+' : '-') + '₹' + Number(amount).toLocaleString('en-IN', {minimumFractionDigits: 2}), color: txnType === 'Income' ? '#34d399' : '#f87171', bold: true }
+                        ]
+                    },
+                    {
+                        title: 'Description & Narration',
+                        icon: 'fas fa-align-left',
+                        fields: [
+                            { label: 'Description', value: desc || 'Manual entry', fullWidth: true }
+                        ]
+                    }
+                ]
+            });
+        }
+
         async function deleteTxn(txnId) {
             if (!confirm('Are you sure you want to delete this transaction?')) return;
             try {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sagar Accounts — Accounts Payable</title>
+    <title>Sagar Accounts — Accounts Payable (Supplier Bills & Ageing)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css">
@@ -12,238 +12,487 @@
     {% include 'sidebar.html' %}
 
     <div class="main-content">
-        <div class="top-bar">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div class="page-title">
-                <h1>Accounts Payable (Money Owed to Suppliers)</h1>
-                <p>Track vendor invoices, raw material liabilities, due payment schedules, and record disbursements</p>
+                <h1>Accounts Payable (Trade Creditors)</h1>
+                <p>Inward material purchases, disbursements, 5-bucket ageing & subledger reconciliation</p>
             </div>
-            <button class="quick-action-btn" style="background: linear-gradient(135deg, var(--secondary), #be185d);" onclick="openPayModal()">
-                <i class="fas fa-plus"></i> New Payable Entry
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="openDebitNoteModal()" class="btn btn-secondary" style="font-size: 0.85rem;">
+                    <i class="fas fa-file-invoice"></i> Debit Note
+                </button>
+                <button onclick="openAdvanceModal()" class="btn btn-secondary" style="font-size: 0.85rem;">
+                    <i class="fas fa-hand-holding-usd"></i> Advance
+                </button>
+                <a href="/payables?status=Pending" class="btn btn-secondary" style="font-size: 0.85rem;">Pending Only</a>
+                <a href="/payables" class="btn btn-secondary" style="font-size: 0.85rem;">View All</a>
+            </div>
         </div>
 
-        <!-- Payables Ledger Table -->
+        <!-- Subledger Control & Reconciliation Banner -->
+        {% if ap_reconciliation %}
+        <div class="glass-panel" style="margin-bottom: 20px; padding: 12px 20px; border-left: 4px solid {{ '#10b981' if ap_reconciliation.is_reconciled else '#ef4444' }}; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <i class="fas {{ 'fa-check-circle' if ap_reconciliation.is_reconciled else 'fa-exclamation-triangle' }}" style="font-size: 1.3rem; color: {{ '#34d399' if ap_reconciliation.is_reconciled else '#f87171' }};"></i>
+                <div>
+                    <span style="font-weight: 600; color: #f8fafc;">AP Subledger Control Account Reconciliation (GL 2010)</span>
+                    <span style="display: block; font-size: 0.8rem; color: var(--text-muted);">
+                        Subledger Total: <strong>₹{{ "{:,.2f}".format(ap_reconciliation.subledger_total) }}</strong> | GL Control Balance: <strong>₹{{ "{:,.2f}".format(ap_reconciliation.gl_control_balance) }}</strong>
+                    </span>
+                </div>
+            </div>
+            <div>
+                <span class="badge {{ 'badge-success' if ap_reconciliation.is_reconciled else 'badge-danger' }}">
+                    {{ ap_reconciliation.status }} (Diff: ₹{{ "{:,.2f}".format(ap_reconciliation.difference) }})
+                </span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 5-Bucket Ageing Summary Grid -->
+        {% if ap_ageing and ap_ageing.totals %}
+        <div class="glass-panel" style="margin-bottom: 25px; padding: 15px 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4 style="margin: 0; color: #f8fafc; font-size: 0.95rem;"><i class="fas fa-history" style="color: #fb923c;"></i> Accounts Payable Ageing Analysis</h4>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">As of {{ ap_ageing.as_of_date }} (Based on Due Dates)</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 15px;">
+                <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #34d399; text-transform: uppercase; font-weight: 700;">Current (Not Due)</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #34d399; margin-top: 4px;">₹{{ "{:,.2f}".format(ap_ageing.totals.current) }}</div>
+                </div>
+                <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #60a5fa; text-transform: uppercase; font-weight: 700;">1–30 Days</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #60a5fa; margin-top: 4px;">₹{{ "{:,.2f}".format(ap_ageing.totals.days_1_30) }}</div>
+                </div>
+                <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #fbbf24; text-transform: uppercase; font-weight: 700;">31–60 Days</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #fbbf24; margin-top: 4px;">₹{{ "{:,.2f}".format(ap_ageing.totals.days_31_60) }}</div>
+                </div>
+                <div style="background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #fb923c; text-transform: uppercase; font-weight: 700;">61–90 Days</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #fb923c; margin-top: 4px;">₹{{ "{:,.2f}".format(ap_ageing.totals.days_61_90) }}</div>
+                </div>
+                <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #f87171; text-transform: uppercase; font-weight: 700;">90+ Days</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #f87171; margin-top: 4px;">₹{{ "{:,.2f}".format(ap_ageing.totals.days_90_plus) }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Payables Table -->
         <div class="glass-panel">
             <div class="panel-header">
-                <h3><i class="fas fa-file-invoice-dollar" style="color: var(--secondary);"></i> Vendor Payables Ledger</h3>
+                <h3><i class="fas fa-truck" style="color: var(--accent);"></i> Supplier Invoices</h3>
+                <span class="source-badge source-inventory"><i class="fas fa-database"></i> Source: Inventory Software</span>
             </div>
 
             <div class="table-responsive">
-                <table class="custom-table">
+                <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Pay ID</th>
+                            <th style="width: 140px;">Purchase Inv #</th>
                             <th>Supplier / Vendor</th>
-                            <th>Invoice Ref</th>
-                            <th>Total (₹)</th>
-                            <th>Paid (₹)</th>
-                            <th>Remaining (₹)</th>
-                            <th>Due Date</th>
-                            <th>Status</th>
-                            <th style="text-align: right;">Action</th>
+                            <th class="col-currency" style="width: 130px;">Total Bill</th>
+                            <th class="col-currency" style="width: 120px;">Paid</th>
+                            <th class="col-currency" style="width: 130px;">Outstanding</th>
+                            <th class="col-badge" style="width: 110px;">Status</th>
+                            <th class="col-action" style="width: 180px;">Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for p in payables %}
-                        <tr>
-                            <td style="font-weight: 600; color: var(--secondary);">{{ p.payable_no }}</td>
-                            <td>
-                                <div style="font-weight: 600; color: white;">{{ p.supplier_name }}</div>
-                                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ p.contact_phone or '' }}</div>
-                            </td>
-                            <td>{{ p.invoice_ref or '-' }}</td>
-                            <td>₹{{ "%.2f"|format(p.total_amount) }}</td>
-                            <td style="color: var(--success);">₹{{ "%.2f"|format(p.paid_amount) }}</td>
-                            <td style="font-weight: 700; color: {% if p.remaining_balance > 0 %}var(--danger){% else %}var(--success){% endif %};">
-                                ₹{{ "%.2f"|format(p.remaining_balance) }}
-                            </td>
-                            <td>{{ p.due_date }}</td>
-                            <td>
-                                {% if p.status == 'Paid' %}
-                                    <span class="badge badge-success">PAID</span>
-                                {% elif p.status == 'Partial' %}
-                                    <span class="badge badge-warning">PARTIAL</span>
-                                {% else %}
-                                    <span class="badge badge-danger">PENDING</span>
-                                {% endif %}
-                            </td>
-                            <td style="text-align: right; display: flex; justify-content: flex-end; gap: 8px; align-items: center;">
-                                {% if p.remaining_balance > 0 %}
-                                <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="openPayDisburseModal({{ p.id }}, '{{ p.supplier_name }}', {{ p.remaining_balance }})">
-                                    <i class="fas fa-money-check-alt"></i> Pay
-                                </button>
-                                {% else %}
-                                <span style="font-size: 0.85rem; color: var(--success);"><i class="fas fa-check-circle"></i> Settled</span>
-                                {% endif %}
-                                <button onclick="deletePay({{ p.id }})" class="btn btn-danger" style="padding: 6px 10px; font-size: 0.8rem;" title="Delete Record">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </td>
-                        </tr>
+                        {% if payables %}
+                            {% for p in payables %}
+                            <tr>
+                                <td><strong style="color: #f1f5f9; letter-spacing: 0.2px;">{{ p.invoice_ref }}</strong></td>
+                                <td>
+                                    <a href="javascript:void(0)" onclick="openSupplierLedger('{{ p.supplier_name|replace('\'', '\\\'') }}')" style="color: #60a5fa; font-weight: 600; text-decoration: underline;">
+                                        {{ p.supplier_name }}
+                                    </a>
+                                </td>
+                                <td class="col-currency" style="font-weight: 600;">₹{{ "{:,.2f}".format(p.total_amount) }}</td>
+                                <td class="col-currency" style="color: var(--success); font-weight: 600;">₹{{ "{:,.2f}".format(p.paid_amount) }}</td>
+                                <td class="col-currency" style="font-weight: 700; color: {% if p.remaining_balance > 0 %}#f87171{% else %}#94a3b8{% endif %}; font-size: 0.95rem;">
+                                    ₹{{ "{:,.2f}".format(p.remaining_balance) }}
+                                </td>
+                                <td class="col-badge">
+                                    {% if p.status == 'Paid' %}
+                                        <span class="badge badge-success"><i class="fas fa-check"></i> Paid</span>
+                                    {% elif p.status == 'Partial' %}
+                                        <span class="badge badge-warning"><i class="fas fa-clock"></i> Partial</span>
+                                    {% else %}
+                                        <span class="badge badge-danger"><i class="fas fa-exclamation-circle"></i> Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td class="col-action">
+                                    <div class="table-actions-group">
+                                        <button type="button"
+                                                onclick="viewPayableDetails('{{ p.invoice_ref }}', '{{ p.payable_no }}', '{{ p.supplier_name|replace('\'', '\\\'') }}', '{{ p.invoice_date or '' }}', '{{ p.due_date or '' }}', {{ p.total_amount }}, {{ p.paid_amount }}, {{ p.remaining_balance }}, '{{ p.status }}', {{ p.id }})"
+                                                class="btn-details" title="View Full Record Details">
+                                            <i class="fas fa-eye"></i> View
+                                        </button>
+                                        {% if p.remaining_balance > 0 %}
+                                            <button onclick="openPayModal({{ p.id }}, '{{ p.supplier_name|replace('\'', '\\\'') }}', '{{ p.invoice_ref }}', {{ p.remaining_balance }})"
+                                                    class="btn-action-sm btn-primary" title="Record Payment">
+                                                <i class="fas fa-money-check-alt"></i> Pay
+                                            </button>
+                                        {% else %}
+                                            <span class="badge badge-secondary" style="font-size: 0.72rem;"><i class="fas fa-check-double"></i> Settled</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
                         {% else %}
-                        <tr>
-                            <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">
-                                No vendor payables found.
-                            </td>
-                        </tr>
-                        {% endfor %}
+                            <tr>
+                                <td colspan="7" class="text-center" style="color: var(--text-muted); padding: 40px 20px;">
+                                    <i class="fas fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 10px; opacity: 0.4;"></i>
+                                    No payables found matching criteria.
+                                </td>
+                            </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- New Payable Modal -->
-    <div id="payModal" class="modal-overlay">
-        <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
-                <h3 style="color: white;"><i class="fas fa-truck-loading" style="color: var(--secondary);"></i> New Vendor Payable</h3>
+    <!-- Payment Disbursement Modal -->
+    <div id="payModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 480px; margin: 20px; border-color: var(--danger);">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3><i class="fas fa-money-check-alt" style="color: var(--danger);"></i> Record Supplier Payment</h3>
                 <button onclick="closePayModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
             </div>
-            <form id="payForm">
+            <form onsubmit="submitPayment(event)">
+                <input type="hidden" id="modalPayId">
                 <div class="form-group">
-                    <label class="form-label">Supplier / Vendor Name</label>
-                    <input type="text" id="paySupplier" class="form-control" placeholder="e.g. Venkateswara Packaging Ltd" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Contact Phone</label>
-                    <input type="text" id="payPhone" class="form-control" placeholder="e.g. 9894012345">
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div class="form-group">
-                        <label class="form-label">Vendor Invoice Ref</label>
-                        <input type="text" id="payInvoice" class="form-control" placeholder="e.g. SUP-INV-991">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Due Date</label>
-                        <input type="date" id="payDueDate" class="form-control" required>
-                    </div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div class="form-group">
-                        <label class="form-label">Total Invoice Amount (₹)</label>
-                        <input type="number" step="0.01" id="payTotal" class="form-control" placeholder="e.g. 32000.00" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Paid Upfront (₹)</label>
-                        <input type="number" step="0.01" id="payPaid" class="form-control" value="0.00">
-                    </div>
+                    <label class="form-label">Supplier & Bill</label>
+                    <input type="text" id="modalSupplierInfo" class="form-control" readonly style="background: rgba(0,0,0,0.2);">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Notes</label>
-                    <input type="text" id="payNotes" class="form-control" placeholder="Payment terms or supplier remarks">
-                </div>
-                <div style="display: flex; gap: 12px; margin-top: 25px;">
-                    <button type="submit" class="btn btn-primary" style="background: var(--secondary); flex: 1;">Create Payable Record</button>
-                    <button type="button" onclick="closePayModal()" class="btn btn-secondary">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Disburse Payment Modal -->
-    <div id="disburseModal" class="modal-overlay">
-        <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
-                <h3 style="color: white;"><i class="fas fa-money-check-alt" style="color: var(--danger);"></i> Record Payment Disbursement</h3>
-                <button onclick="closePayDisburseModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
-            </div>
-            <form id="disburseForm">
-                <input type="hidden" id="disbursePayId">
-                <div class="form-group">
-                    <label class="form-label">Supplier Name</label>
-                    <input type="text" id="disburseSupplierName" class="form-control" readonly style="opacity: 0.7;">
+                    <label class="form-label">Disbursement Amount (₹)</label>
+                    <input type="number" step="0.01" id="modalPayAmount" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Amount Disbursed (₹)</label>
-                    <input type="number" step="0.01" id="disburseAmount" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Payment Method</label>
-                    <select id="disburseMethod" class="form-select" required>
-                        <option value="Bank Transfer">Bank Transfer (NEFT/RTGS/IMPS)</option>
+                    <label class="form-label">Disbursement Mode</label>
+                    <select id="modalPayMethod" class="form-select">
+                        <option value="Bank Transfer">Bank Transfer (NEFT/RTGS)</option>
                         <option value="UPI">UPI</option>
                         <option value="Cash">Cash</option>
                         <option value="Cheque">Cheque</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Reference No. / UTR</label>
-                    <input type="text" id="disburseRefNo" class="form-control" placeholder="e.g. UTR-5544100">
+                    <label class="form-label">Reference / UTR No.</label>
+                    <input type="text" id="modalPayRef" class="form-control" placeholder="e.g. UTR-982173">
                 </div>
-                <div style="display: flex; gap: 12px; margin-top: 25px;">
-                    <button type="submit" class="btn btn-danger" style="flex: 1;">Submit Payment</button>
-                    <button type="button" onclick="closePayDisburseModal()" class="btn btn-secondary">Cancel</button>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1; background: var(--danger); border-color: var(--danger);">Confirm Payment</button>
+                    <button type="button" onclick="closePayModal()" class="btn btn-secondary">Cancel</button>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- Debit Note Modal -->
+    <div id="debitNoteModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 480px; margin: 20px; border-color: #f97316;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;"><i class="fas fa-file-invoice" style="color: #fb923c;"></i> Issue Supplier Debit Note</h3>
+                <button onclick="closeDebitNoteModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form onsubmit="submitDebitNote(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Supplier / Vendor Name</label>
+                    <input type="text" id="dnSupplier" class="form-control" placeholder="Supplier Name" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Bill Ref (Optional)</label>
+                    <input type="text" id="dnBillRef" class="form-control" placeholder="e.g. INV-9901">
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Debit Amount (₹)</label>
+                    <input type="number" step="0.01" id="dnAmount" class="form-control" placeholder="0.00" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Input Tax Adjustment (₹)</label>
+                    <input type="number" step="0.01" id="dnTaxAmount" class="form-control" placeholder="0.00" value="0.00">
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="form-label">Reason / Return Description</label>
+                    <input type="text" id="dnReason" class="form-control" placeholder="e.g. Damaged material returned" required>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Post Debit Note</button>
+                    <button type="button" onclick="closeDebitNoteModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Supplier Advance Modal -->
+    <div id="advanceModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 480px; margin: 20px; border-color: #3b82f6;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;"><i class="fas fa-hand-holding-usd" style="color: #60a5fa;"></i> Record Supplier Advance</h3>
+                <button onclick="closeAdvanceModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form onsubmit="submitAdvance(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Supplier Name</label>
+                    <input type="text" id="advSupplier" class="form-control" placeholder="Supplier Name" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Advance Amount (₹)</label>
+                    <input type="number" step="0.01" id="advAmount" class="form-control" placeholder="0.00" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Disbursement Method</label>
+                    <select id="advMethod" class="form-select">
+                        <option value="Bank Transfer">Bank Current Account</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Cash">Cash on Hand</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="form-label">Narration</label>
+                    <input type="text" id="advNarration" class="form-control" placeholder="e.g. PO Advance deposit">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Save Supplier Advance</button>
+                    <button type="button" onclick="closeAdvanceModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Supplier Ledger Modal -->
+    <div id="supplierLedgerModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 800px; max-height: 85vh; display: flex; flex-direction: column; margin: 20px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 id="suppLedgerTitle" style="margin: 0;"><i class="fas fa-book" style="color: #fb923c;"></i> Supplier Statement</h3>
+                <button onclick="closeSupplierLedger()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 10px 15px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem;">
+                <div>Total Invoiced: <strong id="suppLedgerBilled" style="color: #60a5fa;">₹0.00</strong></div>
+                <div>Total Disbursed: <strong id="suppLedgerDisbursed" style="color: #34d399;">₹0.00</strong></div>
+                <div>Closing Balance: <strong id="suppLedgerClosing" style="color: #f87171;">₹0.00</strong></div>
+            </div>
+            <div class="table-responsive" style="flex: 1; overflow-y: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Voucher #</th>
+                            <th>Description</th>
+                            <th class="col-currency">Disbursed (Dr)</th>
+                            <th class="col-currency">Billed (Cr)</th>
+                            <th class="col-currency">Running Bal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="suppLedgerBody">
+                        <tr><td colspan="6" class="text-center">Loading statement...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script>
-        function openPayModal() { document.getElementById('payModal').style.display = 'flex'; }
-        function closePayModal() { document.getElementById('payModal').style.display = 'none'; }
-
-        function openPayDisburseModal(id, name, rem) {
-            document.getElementById('disbursePayId').value = id;
-            document.getElementById('disburseSupplierName').value = name;
-            document.getElementById('disburseAmount').value = rem;
-            document.getElementById('disburseModal').style.display = 'flex';
+        function openPayModal(id, supplier, invoice, balance) {
+            document.getElementById('modalPayId').value = id;
+            document.getElementById('modalSupplierInfo').value = `${supplier} (Bill #${invoice}) - Due: ₹${balance.toFixed(2)}`;
+            document.getElementById('modalPayAmount').value = balance.toFixed(2);
+            document.getElementById('modalPayAmount').max = balance;
+            document.getElementById('payModal').style.display = 'flex';
         }
-        function closePayDisburseModal() { document.getElementById('disburseModal').style.display = 'none'; }
 
-        document.getElementById('payForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const payload = {
-                supplier_name: document.getElementById('paySupplier').value,
-                contact_phone: document.getElementById('payPhone').value,
-                invoice_ref: document.getElementById('payInvoice').value,
-                due_date: document.getElementById('payDueDate').value,
-                total_amount: document.getElementById('payTotal').value,
-                paid_amount: document.getElementById('payPaid').value,
-                notes: document.getElementById('payNotes').value
-            };
-            const res = await fetch('/api/payables/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.status === 'success') location.reload();
-            else alert(data.error);
-        });
+        function closePayModal() {
+            document.getElementById('payModal').style.display = 'none';
+        }
 
-        document.getElementById('disburseForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const payload = {
-                pay_id: document.getElementById('disbursePayId').value,
-                amount_paid: document.getElementById('disburseAmount').value,
-                payment_method: document.getElementById('disburseMethod').value,
-                reference_no: document.getElementById('disburseRefNo').value
-            };
-            const res = await fetch('/api/payables/pay', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.status === 'success') location.reload();
-            else alert(data.error);
-        });
+        function openDebitNoteModal() {
+            document.getElementById('debitNoteModal').style.display = 'flex';
+        }
+        function closeDebitNoteModal() {
+            document.getElementById('debitNoteModal').style.display = 'none';
+        }
 
-        async function deletePay(payId) {
-            if (!confirm('Are you sure you want to delete this payable record?')) return;
+        function openAdvanceModal() {
+            document.getElementById('advanceModal').style.display = 'flex';
+        }
+        function closeAdvanceModal() {
+            document.getElementById('advanceModal').style.display = 'none';
+        }
+
+        function closeSupplierLedger() {
+            document.getElementById('supplierLedgerModal').style.display = 'none';
+        }
+
+        async function openSupplierLedger(supplierName) {
+            document.getElementById('suppLedgerTitle').innerText = 'Supplier Statement: ' + supplierName;
+            document.getElementById('supplierLedgerModal').style.display = 'flex';
+            const tbody = document.getElementById('suppLedgerBody');
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">Fetching ledger data...</td></tr>';
+
             try {
-                const res = await fetch('/api/payables/delete', {
+                const res = await fetch('/api/ap/ledger?supplier_name=' + encodeURIComponent(supplierName));
+                const json = await res.json();
+                if (json.status === 'success' && json.data) {
+                    const d = json.data;
+                    document.getElementById('suppLedgerBilled').innerText = '₹' + d.total_billed.toLocaleString('en-IN', {minimumFractionDigits: 2});
+                    document.getElementById('suppLedgerDisbursed').innerText = '₹' + d.total_disbursed.toLocaleString('en-IN', {minimumFractionDigits: 2});
+                    document.getElementById('suppLedgerClosing').innerText = '₹' + d.closing_balance.toLocaleString('en-IN', {minimumFractionDigits: 2});
+
+                    if (d.movements && d.movements.length > 0) {
+                        tbody.innerHTML = d.movements.map(m => `
+                            <tr>
+                                <td style="font-size: 0.8rem; color: var(--text-muted);">${m.date}</td>
+                                <td><a href="javascript:void(0)" onclick="showRecordDetails('journal', ${m.entry_id})" style="color: var(--accent); font-weight: 600;">${m.entry_number}</a></td>
+                                <td style="font-size: 0.85rem;">${m.description}</td>
+                                <td class="col-currency" style="color: #34d399;">${m.debit > 0 ? '₹' + m.debit.toLocaleString('en-IN', {minimumFractionDigits: 2}) : '—'}</td>
+                                <td class="col-currency">${m.credit > 0 ? '₹' + m.credit.toLocaleString('en-IN', {minimumFractionDigits: 2}) : '—'}</td>
+                                <td class="col-currency" style="font-weight: 700;">₹${m.running_balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `).join('');
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 20px; color: var(--text-muted);">No transactions found for this supplier.</td></tr>';
+                    }
+                }
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="color: #f87171;">Failed to load statement: ${err.message}</td></tr>`;
+            }
+        }
+
+        async function submitDebitNote(e) {
+            e.preventDefault();
+            const payload = {
+                supplier_name: document.getElementById('dnSupplier').value,
+                invoice_ref: document.getElementById('dnBillRef').value,
+                amount: parseFloat(document.getElementById('dnAmount').value),
+                tax_amount: parseFloat(document.getElementById('dnTaxAmount').value || 0.0),
+                reason: document.getElementById('dnReason').value
+            };
+
+            try {
+                const res = await fetch('/api/ap/debit-note', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pay_id: payId })
+                    body: JSON.stringify(payload)
                 });
                 const data = await res.json();
-                if (data.status === 'success') location.reload();
-                else alert('Error: ' + data.error);
+                if (data.status === 'success') {
+                    alert('Debit Note posted successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
             } catch (err) {
-                alert('Failed to connect to backend.');
+                alert('Network error: ' + err.message);
             }
+        }
+
+        async function submitAdvance(e) {
+            e.preventDefault();
+            const payload = {
+                supplier_name: document.getElementById('advSupplier').value,
+                amount: parseFloat(document.getElementById('advAmount').value),
+                payment_method: document.getElementById('advMethod').value,
+                narration: document.getElementById('advNarration').value
+            };
+
+            try {
+                const res = await fetch('/api/ap/advance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('Supplier Advance recorded successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
+
+        function submitPayment(e) {
+            e.preventDefault();
+            const payload = {
+                payable_id: document.getElementById('modalPayId').value,
+                amount: document.getElementById('modalPayAmount').value,
+                payment_method: document.getElementById('modalPayMethod').value,
+                reference_no: document.getElementById('modalPayRef').value
+            };
+
+            fetch('/api/payables/pay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error: ' + res.message);
+                }
+            });
+        }
+
+        function viewPayableDetails(invoiceRef, payableNo, supplier, date, dueDate, total, paid, balance, status, id) {
+            showRecordDetails({
+                title: 'Purchase Bill: ' + invoiceRef,
+                subtitle: 'Supplier Accounts Payable & Trade Liability Record',
+                icon: 'fas fa-truck-loading',
+                iconColor: 'var(--accent)',
+                badge: {
+                    text: status === 'Paid' ? 'Paid' : (status === 'Partial' ? 'Partial' : 'Pending'),
+                    class: status === 'Paid' ? 'badge-success' : (status === 'Partial' ? 'badge-warning' : 'badge-danger')
+                },
+                sections: [
+                    {
+                        title: 'Bill & Purchase Details',
+                        icon: 'fas fa-file-invoice-dollar',
+                        fields: [
+                            { label: 'Purchase Bill #', value: invoiceRef, bold: true },
+                            { label: 'Payable Voucher #', value: payableNo, code: true },
+                            { label: 'Bill Date', value: date || '—' },
+                            { label: 'Due Date', value: dueDate || 'Immediate' },
+                            { label: 'Source Module', value: 'Inventory Software', badgeClass: 'source-badge source-inventory' }
+                        ]
+                    },
+                    {
+                        title: 'Supplier Information',
+                        icon: 'fas fa-building',
+                        fields: [
+                            { label: 'Supplier Name', value: supplier, fullWidth: true, bold: true }
+                        ]
+                    },
+                    {
+                        title: 'Disbursement & Payable Breakdown',
+                        icon: 'fas fa-coins',
+                        fields: [
+                            { label: 'Total Billed Amount', value: '₹' + Number(total).toLocaleString('en-IN', {minimumFractionDigits: 2}) },
+                            { label: 'Total Disbursed / Paid', value: '₹' + Number(paid).toLocaleString('en-IN', {minimumFractionDigits: 2}), color: '#34d399' },
+                            { label: 'Remaining Outstanding', value: '₹' + Number(balance).toLocaleString('en-IN', {minimumFractionDigits: 2}), color: balance > 0 ? '#f87171' : '#94a3b8', bold: true }
+                        ]
+                    }
+                ],
+                actions: balance > 0 ? [
+                    {
+                        label: 'Disburse Payment',
+                        icon: 'fas fa-money-check-alt',
+                        class: 'btn-primary',
+                        onClick: () => openPayModal(id, supplier, invoiceRef, balance)
+                    }
+                ] : []
+            });
         }
     </script>
 </body>

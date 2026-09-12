@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Opening Balances Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .balance-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .metric-pill {
+            display: inline-flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+        .metric-amount {
+            font-size: 1.25rem;
+            font-weight: 800;
+        }
+        .row-item {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 2fr 40px;
+            gap: 12px;
+            align-items: center;
+        }
+        .form-input-sm {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .subledger-box {
+            grid-column: 1 / -1;
+            background: rgba(30, 41, 59, 0.5);
+            border-left: 3px solid var(--accent);
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: flex;
+            gap: 15px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-title">
+                <h1>Opening Balances Control</h1>
+                <p>Establishes General Ledger, Subledger AR/AP, and Inventory baseline balances</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="autoBalanceWithCapital()">
+                    <i class="fas fa-magic"></i> Auto-Balance with Capital (3010)
+                </button>
+                <button type="button" class="btn btn-primary" onclick="submitOpeningBalances()">
+                    <i class="fas fa-check-circle"></i> Post Opening Balances
+                </button>
+            </div>
+        </div>
+
+        <!-- Inventory Coordination Banner -->
+        <div class="formula-card" style="margin-bottom: 20px;">
+            <i class="fas fa-boxes"></i>
+            <strong>Live Inventory Coordination:</strong> Jai Agency currently holds a verified stock valuation of <strong style="color: var(--accent);">Rs. {{ "{:,.2f}".format(suggested_inventory_val) }}</strong> across active storage batches. You can click "Suggest Stock" below to align the GL Merchandise Inventory account (1050) precisely.
+        </div>
+
+        <!-- Live Balancing Indicator Bar -->
+        <div class="balance-indicator">
+            <div class="metric-pill">
+                <span class="metric-label">Total Opening Debits</span>
+                <span class="metric-amount" id="totalDebitsDisplay" style="color: #60a5fa;">Rs. 0.00</span>
+            </div>
+            <div style="font-size: 1.5rem; color: var(--text-muted);"><i class="fas fa-balance-scale"></i></div>
+            <div class="metric-pill">
+                <span class="metric-label">Total Opening Credits</span>
+                <span class="metric-amount" id="totalCreditsDisplay" style="color: #34d399;">Rs. 0.00</span>
+            </div>
+            <div style="height: 36px; width: 1px; background: var(--border-color);"></div>
+            <div class="metric-pill">
+                <span class="metric-label">Balancing Difference</span>
+                <span class="metric-amount" id="differenceDisplay" style="color: var(--danger);">Rs. 0.00</span>
+            </div>
+            <div id="balanceStatusBadge">
+                <span class="badge badge-danger"><i class="fas fa-times-circle"></i> UNBALANCED</span>
+            </div>
+        </div>
+
+        <!-- Opening Balance Entry Form -->
+        <div class="glass-panel" style="margin-bottom: 30px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3><i class="fas fa-edit"></i> Enter Account Opening Balances</h3>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="font-size: 0.8rem; color: var(--text-muted);">Opening Date:</label>
+                    <input type="date" id="openingDateInput" class="form-input-sm" style="width: 150px;" value="{{ default_opening_date or '2026-04-01' }}">
+                    <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="addOpeningLine()">
+                        <i class="fas fa-plus"></i> Add Account Line
+                    </button>
+                </div>
+            </div>
+
+            <div id="openingLinesContainer" style="padding: 15px 0;">
+                <!-- Dynamically populated rows -->
+            </div>
+
+            <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                <button type="button" class="btn btn-secondary" onclick="loadRecommendedDefaults()">
+                    <i class="fas fa-sliders-h"></i> Load Standard Template
+                </button>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">
+                    Rule: Total Debits must equal Total Credits before posting is accepted by DoubleEntryEngine.
+                </span>
+            </div>
+        </div>
+
+        <!-- Existing Posted Opening Balances -->
+        <div class="glass-panel">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3><i class="fas fa-history"></i> Posted Opening Balance Vouchers</h3>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Permanent GL Baseline Records</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Entry Number</th>
+                            <th>Date</th>
+                            <th>Narration</th>
+                            <th class="col-currency">Total Debit</th>
+                            <th class="col-currency">Total Credit</th>
+                            <th>Posted By</th>
+                            <th>Status</th>
+                            <th style="width: 100px; text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if posted_openings %}
+                            {% for v in posted_openings %}
+                            <tr>
+                                <td><strong style="color: #60a5fa;">{{ v.entry_number }}</strong></td>
+                                <td style="font-size: 0.85rem; color: var(--text-muted);">{{ v.entry_date }}</td>
+                                <td>{{ v.narration }}</td>
+                                <td class="col-currency" style="color: #93c5fd;">Rs. {{ "{:,.2f}".format(v.total_debit) }}</td>
+                                <td class="col-currency" style="color: #86efac;">Rs. {{ "{:,.2f}".format(v.total_credit) }}</td>
+                                <td style="font-size: 0.8rem; color: var(--text-muted);">{{ v.posted_by or 'admin' }}</td>
+                                <td><span class="badge badge-success">{{ v.status }}</span></td>
+                                <td style="text-align: center;">
+                                    <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" onclick="viewOpeningVoucherDetails({{ v|tojson }})">
+                                        <i class="fas fa-eye"></i> Details
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 25px;">
+                                    No opening balance vouchers posted yet. Use the form above to establish baseline balances.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const postableAccounts = {{ postable_accounts|tojson if postable_accounts else '[]' }};
+        const liveInventoryValuation = {{ suggested_inventory_val|default(0.0) }};
+        let lineCounter = 0;
+
+        function addOpeningLine(accountCode='', debit=0, credit=0, partyName='', invRef='') {
+            lineCounter++;
+            const container = document.getElementById('openingLinesContainer');
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'row-item';
+            lineDiv.id = `line_row_${lineCounter}`;
+
+            let selectOptions = '<option value="">-- Select GL Account --</option>';
+            postableAccounts.forEach(acc => {
+                const selected = (acc.code === accountCode) ? 'selected' : '';
+                selectOptions += `<option value="${acc.code}" ${selected}>${acc.code} - ${acc.name} (${acc.major_type})</option>`;
+            });
+
+            lineDiv.innerHTML = `
+                <div>
+                    <select class="form-input-sm account-select" onchange="onAccountChange(${lineCounter})">
+                        ${selectOptions}
+                    </select>
+                </div>
+                <div>
+                    <input type="number" step="0.01" class="form-input-sm debit-input" placeholder="Debit (Rs.)" value="${debit > 0 ? debit : ''}" oninput="recalculateTotals()">
+                </div>
+                <div>
+                    <input type="number" step="0.01" class="form-input-sm credit-input" placeholder="Credit (Rs.)" value="${credit > 0 ? credit : ''}" oninput="recalculateTotals()">
+                </div>
+                <div>
+                    <input type="text" class="form-input-sm desc-input" placeholder="Description / Particulars" value="Opening Balance">
+                </div>
+                <div style="text-align: center;">
+                    <button type="button" style="background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1rem;" onclick="removeOpeningLine(${lineCounter})" title="Delete Line">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+                <div class="subledger-box" id="subledger_${lineCounter}" style="display: ${accountCode === '1040' || accountCode === '2010' ? 'flex' : 'none'};">
+                    <span style="font-weight: 600; color: var(--accent);"><i class="fas fa-link"></i> Subledger Details:</span>
+                    <input type="text" class="form-input-sm party-name-input" placeholder="Customer / Supplier Name" value="${partyName}" style="width: 200px;">
+                    <input type="text" class="form-input-sm inv-ref-input" placeholder="Original Invoice Ref" value="${invRef}" style="width: 150px;">
+                    <input type="date" class="form-input-sm due-date-input" style="width: 130px;">
+                </div>
+            `;
+
+            container.appendChild(lineDiv);
+            recalculateTotals();
+        }
+
+        function removeOpeningLine(id) {
+            const el = document.getElementById(`line_row_${id}`);
+            if (el) el.remove();
+            recalculateTotals();
+        }
+
+        function onAccountChange(lineId) {
+            const row = document.getElementById(`line_row_${lineId}`);
+            const select = row.querySelector('.account-select');
+            const subledgerBox = row.querySelector(`#subledger_${lineId}`);
+            const code = select.value;
+
+            if (code === '1040' || code === '2010') {
+                subledgerBox.style.display = 'flex';
+                const partyInput = subledgerBox.querySelector('.party-name-input');
+                partyInput.placeholder = (code === '1040') ? 'Customer Name' : 'Supplier Name';
+            } else {
+                subledgerBox.style.display = 'none';
+            }
+        }
+
+        function recalculateTotals() {
+            let totalDr = 0;
+            let totalCr = 0;
+
+            document.querySelectorAll('.row-item').forEach(row => {
+                const dr = parseFloat(row.querySelector('.debit-input').value) || 0;
+                const cr = parseFloat(row.querySelector('.credit-input').value) || 0;
+                totalDr += dr;
+                totalCr += cr;
+            });
+
+            totalDr = Math.round(totalDr * 100) / 100;
+            totalCr = Math.round(totalCr * 100) / 100;
+            const diff = Math.round(Math.abs(totalDr - totalCr) * 100) / 100;
+
+            document.getElementById('totalDebitsDisplay').textContent = `Rs. ${totalDr.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+            document.getElementById('totalCreditsDisplay').textContent = `Rs. ${totalCr.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+            document.getElementById('differenceDisplay').textContent = `Rs. ${diff.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+
+            const badgeContainer = document.getElementById('balanceStatusBadge');
+            if (diff === 0 && totalDr > 0) {
+                badgeContainer.innerHTML = `<span class="badge badge-success"><i class="fas fa-check-circle"></i> BALANCED</span>`;
+                document.getElementById('differenceDisplay').style.color = 'var(--success)';
+            } else {
+                badgeContainer.innerHTML = `<span class="badge badge-danger"><i class="fas fa-times-circle"></i> UNBALANCED (Rs. ${diff.toFixed(2)})</span>`;
+                document.getElementById('differenceDisplay').style.color = 'var(--danger)';
+            }
+        }
+
+        function autoBalanceWithCapital() {
+            let totalDr = 0;
+            let totalCr = 0;
+
+            document.querySelectorAll('.row-item').forEach(row => {
+                const dr = parseFloat(row.querySelector('.debit-input').value) || 0;
+                const cr = parseFloat(row.querySelector('.credit-input').value) || 0;
+                totalDr += dr;
+                totalCr += cr;
+            });
+
+            const diff = Math.round((totalDr - totalCr) * 100) / 100;
+            if (diff === 0) {
+                alert('Opening lines are already perfectly balanced!');
+                return;
+            }
+
+            if (diff > 0) {
+                // Debits exceed Credits: offset with Credit to Owner Capital (3010)
+                addOpeningLine('3010', 0, diff);
+            } else {
+                // Credits exceed Debits: offset with Debit to Owner Drawings (3030) or Capital
+                addOpeningLine('3030', Math.abs(diff), 0);
+            }
+            recalculateTotals();
+        }
+
+        function loadRecommendedDefaults() {
+            document.getElementById('openingLinesContainer').innerHTML = '';
+            // 1. Cash on Hand
+            addOpeningLine('1010', 25000.00, 0);
+            // 2. Bank Account
+            addOpeningLine('1020', 150000.00, 0);
+            // 3. Live Inventory Coordinated
+            addOpeningLine('1050', liveInventoryValuation, 0);
+            // 4. Accounts Receivable
+            addOpeningLine('1040', 50000.00, 0, 'City Wholesale Traders', 'INV-OLD-001');
+            // 5. Accounts Payable
+            addOpeningLine('2010', 0, 45000.00, 'Prime Logistics Suppliers', 'BILL-OLD-99');
+            // 6. Auto-balance remainder to Owner Capital (3010)
+            autoBalanceWithCapital();
+        }
+
+        async function submitOpeningBalances() {
+            const lines = [];
+            let totalDr = 0;
+            let totalCr = 0;
+
+            document.querySelectorAll('.row-item').forEach(row => {
+                const code = row.querySelector('.account-select').value;
+                const dr = parseFloat(row.querySelector('.debit-input').value) || 0;
+                const cr = parseFloat(row.querySelector('.credit-input').value) || 0;
+                const desc = row.querySelector('.desc-input').value.trim() || 'Opening Balance';
+
+                const subledger = row.querySelector('.subledger-box');
+                let partyName = null;
+                let invRef = null;
+                let dueDate = null;
+
+                if (subledger && subledger.style.display !== 'none') {
+                    partyName = subledger.querySelector('.party-name-input').value.trim() || null;
+                    invRef = subledger.querySelector('.inv-ref-input').value.trim() || null;
+                    dueDate = subledger.querySelector('.due-date-input').value || null;
+                }
+
+                if (code && (dr > 0 || cr > 0)) {
+                    totalDr += dr;
+                    totalCr += cr;
+                    lines.push({
+                        account_code: code,
+                        debit: dr,
+                        credit: cr,
+                        description: desc,
+                        party_name: partyName,
+                        invoice_ref: invRef,
+                        due_date: dueDate
+                    });
+                }
+            });
+
+            if (lines.length === 0) {
+                alert('Please add at least one opening balance line.');
+                return;
+            }
+
+            const diff = Math.round(Math.abs(totalDr - totalCr) * 100) / 100;
+            if (diff > 0.01) {
+                alert(`Cannot post: Opening balances are unbalanced by Rs. ${diff.toFixed(2)}. Use "Auto-Balance with Capital" first.`);
+                return;
+            }
+
+            const openingDate = document.getElementById('openingDateInput').value;
+
+            try {
+                const res = await fetch('/api/opening-balances/post', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        opening_date: openingDate,
+                        narration: 'Baseline Financial Year Opening Balances',
+                        lines: lines
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.status === 'success') {
+                    alert(`Success: Opening balance entry #${data.entry_number} posted cleanly into the General Ledger!`);
+                    window.location.reload();
+                } else {
+                    alert('Posting Failed: ' + (data.message || data.error || 'Unknown server error'));
+                }
+            } catch (e) {
+                alert('Network error: ' + e.message);
+            }
+        }
+
+        function viewOpeningVoucherDetails(voucher) {
+            showRecordDetails({
+                title: 'Opening Balance Voucher',
+                subtitle: voucher.entry_number,
+                icon: 'fas fa-door-open',
+                iconColor: 'var(--accent)',
+                badge: { text: voucher.status, class: 'badge-success' },
+                sections: [
+                    {
+                        title: 'Voucher Header',
+                        icon: 'fas fa-file-invoice',
+                        fields: [
+                            { label: 'Entry ID', value: voucher.id },
+                            { label: 'Entry Date', value: voucher.entry_date },
+                            { label: 'Total Debits', value: `Rs. ${voucher.total_debit.toFixed(2)}` },
+                            { label: 'Total Credits', value: `Rs. ${voucher.total_credit.toFixed(2)}` },
+                            { label: 'Posted By', value: voucher.posted_by || 'admin' },
+                            { label: 'Narration', value: voucher.narration }
+                        ]
+                    }
+                ]
+            });
+        }
+
+        // Initialize with default line on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            addOpeningLine();
+        });
+    </script>
+</body>
+</html>

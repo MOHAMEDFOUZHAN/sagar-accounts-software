@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sagar Accounts — Quick Entry Screen</title>
+    <title>Sagar Accounts — Accounting Entry Screen</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css">
@@ -12,155 +12,182 @@
     {% include 'sidebar.html' %}
 
     <div class="main-content">
-        <div class="top-bar">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
             <div class="page-title">
                 <h1>Accounting Entry Screen</h1>
-                <p>Record direct expenses, operating expenses, revenues, or quick transactions with automatic timestamping</p>
+                <p>Record financial transactions with automatic timestamping and strict chart-of-accounts validation</p>
             </div>
             <a href="/dashboard" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Back to Dashboard
             </a>
         </div>
 
-        <!-- Formula Callout matching PDF Page 7 -->
-        <div class="formula-card" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(6, 182, 212, 0.15)); border-color: var(--primary);">
-            <i class="fas fa-info-circle"></i> Account type and payment type are dropdown lists. Date and time are automatically recorded. <br>
-            <strong style="color: #34d399; font-size: 1.1rem; display: block; margin-top: 6px;">Formula: Gross profit – operating expense = Net profit</strong>
-        </div>
+        <div style="max-width: 800px; margin: 0 auto;">
+            <div class="formula-card" style="margin-bottom: 20px;">
+                <i class="fas fa-info-circle"></i>
+                <strong>Notice:</strong> Sales transactions are automatically fetched from Sales Software, and raw material purchases are automatically fetched from Inventory Software. Use this screen for manual expenses, fixed assets, liabilities, owner equity, bank charges, and financial adjustments.
+            </div>
 
-        <div style="max-width: 750px; margin: 0 auto;">
             <div class="glass-panel">
-                <div class="panel-header" style="border-bottom: 1px solid var(--glass-border); padding-bottom: 15px; margin-bottom: 25px;">
-                    <h3><i class="fas fa-pen-nib" style="color: var(--primary);"></i> New Financial Entry</h3>
-                    <span id="currentTimestamp" style="font-size: 0.85rem; color: var(--accent); font-weight: 600;"></span>
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 15px; margin-bottom: 25px;">
+                    <h3><i class="fas fa-edit" style="color: var(--primary);"></i> New Accounting Voucher</h3>
+                    <div style="text-align: right;">
+                        <span id="liveDate" style="font-weight: 700; color: var(--accent); font-size: 0.95rem;"></span>
+                        <span id="liveTime" style="display: block; font-size: 0.75rem; color: var(--text-muted);"></span>
+                    </div>
                 </div>
 
-                <form id="entryForm">
+                <form id="entryForm" onsubmit="submitEntry(event)">
+                    <!-- Description -->
                     <div class="form-group">
-                        <label class="form-label"><i class="fas fa-align-left"></i> Description</label>
-                        <input type="text" id="entryDescription" class="form-control" placeholder="e.g. Auto charges, Shop electricity bill, Paper rolls" required autofocus>
+                        <label class="form-label"><i class="fas fa-pencil-alt"></i> Description / Narration *</label>
+                        <input type="text" id="entryDescription" class="form-control" placeholder="e.g. Office electricity bill, Auto conveyance charges, Bank service charges" required autofocus>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <!-- Amount and Payment Type -->
+                    <div class="form-grid-2">
                         <div class="form-group">
-                            <label class="form-label"><i class="fas fa-rupee-sign"></i> Amount (₹)</label>
-                            <input type="number" step="0.01" id="entryAmount" class="form-control" placeholder="e.g. 150.00" required>
+                            <label class="form-label"><i class="fas fa-rupee-sign"></i> Amount (₹) *</label>
+                            <input type="number" step="0.01" id="entryAmount" class="form-control" placeholder="0.00" required min="0.01">
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label"><i class="fas fa-credit-card"></i> Payment Type</label>
+                            <label class="form-label"><i class="fas fa-money-check-alt"></i> Payment Type (Dropdown) *</label>
                             <select id="entryPaymentType" class="form-select" required>
-                                <option value="UPI">UPI</option>
-                                <option value="Cash">Cash</option>
-                                <option value="Bank Transfer">Bank Transfer</option>
-                                <option value="Card">Card</option>
+                                <option value="Cash" selected>Cash</option>
+                                <option value="Bank Transfer">Bank Transfer (NEFT/RTGS)</option>
+                                <option value="UPI">UPI (GooglePay / PhonePe / Paytm)</option>
+                                <option value="Card">Card (POS / Debit / Credit)</option>
                                 <option value="Cheque">Cheque</option>
                                 <option value="Other">Other</option>
                             </select>
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div class="form-group">
-                            <label class="form-label"><i class="fas fa-layer-group"></i> Account Type</label>
-                            <select id="entryAccountType" class="form-select" onchange="updateCategoryOptions()" required>
-                                <option value="Operating Expense" selected>Operating Expense</option>
-                                <option value="Direct Expense">Direct Expense (COGS)</option>
-                                <option value="Revenue">Revenue (Income)</option>
-                                <option value="Asset">Asset</option>
-                                <option value="Liability">Liability</option>
-                                <option value="Equity">Equity</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label"><i class="fas fa-tags"></i> Category</label>
-                            <select id="entryCategory" class="form-select">
-                                <!-- Populated dynamically by JS -->
-                            </select>
-                        </div>
-                    </div>
-
+                    <!-- Account Type Dropdown -->
                     <div class="form-group">
-                        <label class="form-label"><i class="fas fa-hashtag"></i> Reference No. / Voucher (Optional)</label>
-                        <input type="text" id="entryReference" class="form-control" placeholder="e.g. UPI-99812, VOUCHER-04">
+                        <label class="form-label"><i class="fas fa-sitemap"></i> Account Type (Chart of Accounts) *</label>
+                        <select id="entryAccountId" class="form-select" required style="font-weight: 500;">
+                            {% for major_type, acc_list in grouped_accounts.items() %}
+                                <optgroup label="── {{ major_type|upper }} ──">
+                                    {% for a in acc_list %}
+                                        <option value="{{ a.id }}" {% if a.code == '6160' %}selected{% endif %}>
+                                            [{{ a.code }}] {{ a.name }} — ({{ a.sub_type }})
+                                        </option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% endfor %}
+                        </select>
+                        <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">
+                            Select the categorized ledger account for this transaction.
+                        </small>
                     </div>
 
-                    <div style="display: flex; gap: 15px; margin-top: 30px;">
-                        <button type="submit" class="btn btn-primary" style="flex: 1; padding: 14px; font-size: 1rem;">
-                            <i class="fas fa-save"></i> Save Accounting Entry
+                    <!-- Auto Date & Time (Readonly / Visual Confirmation) -->
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-calendar-day"></i> Posting Date (AUTO)</label>
+                            <input type="text" id="autoDate" class="form-control" value="{{ current_date }}" readonly style="background: rgba(0, 0, 0, 0.2); color: var(--text-muted);">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-clock"></i> Posting Time (AUTO)</label>
+                            <input type="text" id="autoTime" class="form-control" value="{{ current_time }}" readonly style="background: rgba(0, 0, 0, 0.2); color: var(--text-muted);">
+                        </div>
+                    </div>
+
+                    <!-- Reference and Notes -->
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-receipt"></i> Reference / Bill / Voucher # (Optional)</label>
+                            <input type="text" id="entryReference" class="form-control" placeholder="e.g. EB-FEB-2026, UPI-REF-4491">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label"><i class="fas fa-sticky-note"></i> Internal Notes (Optional)</label>
+                            <input type="text" id="entryNotes" class="form-control" placeholder="Additional audit remarks">
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div style="display: flex; gap: 15px; margin-top: 25px;">
+                        <button type="submit" id="saveBtn" class="btn btn-primary" style="flex: 1; padding: 14px; font-size: 1rem;">
+                            <i class="fas fa-save"></i> Post Accounting Transaction
                         </button>
                         <button type="reset" class="btn btn-secondary" style="padding: 14px 25px;">
                             Clear
                         </button>
                     </div>
                 </form>
+
+                <div id="alertBox" style="display: none; margin-top: 20px; padding: 14px; border-radius: 8px;"></div>
             </div>
         </div>
     </div>
 
     <script>
-        const categoriesData = {{ categories|tojson }};
-
-        function updateCategoryOptions() {
-            const accType = document.getElementById('entryAccountType').value;
-            const catSelect = document.getElementById('entryCategory');
-            catSelect.innerHTML = '';
-
-            const filtered = categoriesData.filter(c => c.type === accType);
-            if (filtered.length === 0) {
-                const opt = document.createElement('option');
-                opt.value = accType;
-                opt.textContent = accType + ' (General)';
-                catSelect.appendChild(opt);
-            } else {
-                filtered.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c.name;
-                    opt.textContent = c.name;
-                    catSelect.appendChild(opt);
-                });
-            }
-        }
-
-        // Live Clock
-        function updateClock() {
+        function updateLiveClock() {
             const now = new Date();
-            document.getElementById('currentTimestamp').textContent = now.toLocaleString();
+            document.getElementById('liveDate').innerText = now.toLocaleDateString('en-GB', {
+                day: '2-digit', month: 'short', year: 'numeric'
+            });
+            document.getElementById('liveTime').innerText = now.toLocaleTimeString('en-US', {
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+            });
         }
-        setInterval(updateClock, 1000);
-        updateClock();
-        updateCategoryOptions();
+        setInterval(updateLiveClock, 1000);
+        updateLiveClock();
 
-        document.getElementById('entryForm').addEventListener('submit', async function(e) {
+        function submitEntry(e) {
             e.preventDefault();
+            const btn = document.getElementById('saveBtn');
+            const alertBox = document.getElementById('alertBox');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Posting Entry...';
+
             const payload = {
                 description: document.getElementById('entryDescription').value,
                 amount: document.getElementById('entryAmount').value,
-                payment_method: document.getElementById('entryPaymentType').value,
-                account_type: document.getElementById('entryAccountType').value,
-                category_name: document.getElementById('entryCategory').value,
-                reference_no: document.getElementById('entryReference').value
+                payment_type: document.getElementById('entryPaymentType').value,
+                account_id: document.getElementById('entryAccountId').value,
+                reference_no: document.getElementById('entryReference').value,
+                notes: document.getElementById('entryNotes').value
             };
 
-            try {
-                const res = await fetch('/api/quick-entry', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                if (data.status === 'success') {
-                    alert('✓ Accounting Entry Saved Successfully! Txn: ' + data.txn_number);
+            fetch('/api/entry/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(res => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Post Accounting Transaction';
+                alertBox.style.display = 'block';
+
+                if (res.status === 'success') {
+                    alertBox.style.background = 'rgba(16, 185, 129, 0.15)';
+                    alertBox.style.border = '1px solid var(--success)';
+                    alertBox.style.color = '#34d399';
+                    alertBox.innerHTML = `<i class="fas fa-check-circle"></i> <strong>Success!</strong> Entry posted successfully as <code>${res.data.entry_number}</code>. Updated ledger, balances, and P&L.`;
                     document.getElementById('entryForm').reset();
-                    updateCategoryOptions();
+                    document.getElementById('entryDescription').focus();
                 } else {
-                    alert('Error: ' + data.error);
+                    alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+                    alertBox.style.border = '1px solid var(--danger)';
+                    alertBox.style.color = '#f87171';
+                    alertBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong> ${res.message || 'Failed to save entry.'}`;
                 }
-            } catch (err) {
-                alert('Failed to connect to backend.');
-            }
-        });
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Post Accounting Transaction';
+                alertBox.style.display = 'block';
+                alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+                alertBox.style.border = '1px solid var(--danger)';
+                alertBox.style.color = '#f87171';
+                alertBox.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <strong>Network Error:</strong> ${err}`;
+            });
+        }
     </script>
 </body>
 </html>

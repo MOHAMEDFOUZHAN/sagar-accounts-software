@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sagar Accounts — Accounts Receivable</title>
+    <title>Sagar Accounts — Accounts Receivable (Customer Invoices & Ageing)</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css">
@@ -12,238 +12,488 @@
     {% include 'sidebar.html' %}
 
     <div class="main-content">
-        <div class="top-bar">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div class="page-title">
-                <h1>Accounts Receivable (Money to Receive)</h1>
-                <p>Monitor credit sales, client balances, due dates, and record incoming installment payments</p>
+                <h1>Accounts Receivable (Customer Balances)</h1>
+                <p>Automated credit sales tracking, collections, 5-bucket ageing & subledger control</p>
             </div>
-            <button class="quick-action-btn" onclick="openRecModal()">
-                <i class="fas fa-plus"></i> New Receivable Entry
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="openCreditNoteModal()" class="btn btn-secondary" style="font-size: 0.85rem;">
+                    <i class="fas fa-file-invoice-dollar"></i> Credit Note
+                </button>
+                <button onclick="openAdvanceModal()" class="btn btn-secondary" style="font-size: 0.85rem;">
+                    <i class="fas fa-hand-holding-usd"></i> Advance
+                </button>
+                <a href="/receivables?status=Pending" class="btn btn-secondary" style="font-size: 0.85rem;">Pending Only</a>
+                <a href="/receivables" class="btn btn-secondary" style="font-size: 0.85rem;">View All</a>
+            </div>
         </div>
 
-        <!-- Receivables Ledger Table -->
+        <!-- Subledger Control & Reconciliation Banner -->
+        {% if ar_reconciliation %}
+        <div class="glass-panel" style="margin-bottom: 20px; padding: 12px 20px; border-left: 4px solid {{ '#10b981' if ar_reconciliation.is_reconciled else '#ef4444' }}; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <i class="fas {{ 'fa-check-circle' if ar_reconciliation.is_reconciled else 'fa-exclamation-triangle' }}" style="font-size: 1.3rem; color: {{ '#34d399' if ar_reconciliation.is_reconciled else '#f87171' }};"></i>
+                <div>
+                    <span style="font-weight: 600; color: #f8fafc;">AR Subledger Control Account Reconciliation (GL 1040)</span>
+                    <span style="display: block; font-size: 0.8rem; color: var(--text-muted);">
+                        Subledger Total: <strong>₹{{ "{:,.2f}".format(ar_reconciliation.subledger_total) }}</strong> | GL Control Balance: <strong>₹{{ "{:,.2f}".format(ar_reconciliation.gl_control_balance) }}</strong>
+                    </span>
+                </div>
+            </div>
+            <div>
+                <span class="badge {{ 'badge-success' if ar_reconciliation.is_reconciled else 'badge-danger' }}">
+                    {{ ar_reconciliation.status }} (Diff: ₹{{ "{:,.2f}".format(ar_reconciliation.difference) }})
+                </span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 5-Bucket Ageing Summary Grid -->
+        {% if ar_ageing and ar_ageing.totals %}
+        <div class="glass-panel" style="margin-bottom: 25px; padding: 15px 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4 style="margin: 0; color: #f8fafc; font-size: 0.95rem;"><i class="fas fa-history" style="color: #60a5fa;"></i> Accounts Receivable Ageing Analysis</h4>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">As of {{ ar_ageing.as_of_date }} (Based on Due Dates)</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 15px;">
+                <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #34d399; text-transform: uppercase; font-weight: 700;">Current (Not Due)</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #34d399; margin-top: 4px;">₹{{ "{:,.2f}".format(ar_ageing.totals.current) }}</div>
+                </div>
+                <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #60a5fa; text-transform: uppercase; font-weight: 700;">1–30 Days</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #60a5fa; margin-top: 4px;">₹{{ "{:,.2f}".format(ar_ageing.totals.days_1_30) }}</div>
+                </div>
+                <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #fbbf24; text-transform: uppercase; font-weight: 700;">31–60 Days</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #fbbf24; margin-top: 4px;">₹{{ "{:,.2f}".format(ar_ageing.totals.days_31_60) }}</div>
+                </div>
+                <div style="background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #fb923c; text-transform: uppercase; font-weight: 700;">61–90 Days</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #fb923c; margin-top: 4px;">₹{{ "{:,.2f}".format(ar_ageing.totals.days_61_90) }}</div>
+                </div>
+                <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.75rem; color: #f87171; text-transform: uppercase; font-weight: 700;">90+ Days</div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: #f87171; margin-top: 4px;">₹{{ "{:,.2f}".format(ar_ageing.totals.days_90_plus) }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Receivables Table -->
         <div class="glass-panel">
             <div class="panel-header">
-                <h3><i class="fas fa-hand-holding-usd" style="color: var(--accent);"></i> Outstanding Receivables</h3>
+                <h3><i class="fas fa-users" style="color: #60a5fa;"></i> Customer Accounts Receivable</h3>
+                <span class="source-badge source-sales"><i class="fas fa-database"></i> Source: Sales Billing System</span>
             </div>
 
             <div class="table-responsive">
-                <table class="custom-table">
+                <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Rec ID</th>
-                            <th>Customer / Client</th>
-                            <th>Invoice Ref</th>
-                            <th>Total (₹)</th>
-                            <th>Paid (₹)</th>
-                            <th>Remaining (₹)</th>
-                            <th>Due Date</th>
-                            <th>Status</th>
-                            <th style="text-align: right;">Action</th>
+                            <th style="width: 140px;">Sales Bill #</th>
+                            <th>Customer Name</th>
+                            <th class="col-currency" style="width: 130px;">Bill Amount</th>
+                            <th class="col-currency" style="width: 120px;">Received</th>
+                            <th class="col-currency" style="width: 130px;">Outstanding</th>
+                            <th class="col-badge" style="width: 110px;">Status</th>
+                            <th class="col-action" style="width: 190px;">Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for r in receivables %}
-                        <tr>
-                            <td style="font-weight: 600; color: var(--accent);">{{ r.receivable_no }}</td>
-                            <td>
-                                <div style="font-weight: 600; color: white;">{{ r.customer_name }}</div>
-                                <div style="font-size: 0.8rem; color: var(--text-muted);">{{ r.contact_phone or '' }}</div>
-                            </td>
-                            <td>{{ r.invoice_ref or '-' }}</td>
-                            <td>₹{{ "%.2f"|format(r.total_amount) }}</td>
-                            <td style="color: var(--success);">₹{{ "%.2f"|format(r.paid_amount) }}</td>
-                            <td style="font-weight: 700; color: {% if r.remaining_balance > 0 %}var(--warning){% else %}var(--success){% endif %};">
-                                ₹{{ "%.2f"|format(r.remaining_balance) }}
-                            </td>
-                            <td>{{ r.due_date }}</td>
-                            <td>
-                                {% if r.status == 'Paid' %}
-                                    <span class="badge badge-success">PAID</span>
-                                {% elif r.status == 'Partial' %}
-                                    <span class="badge badge-warning">PARTIAL</span>
-                                {% else %}
-                                    <span class="badge badge-danger">PENDING</span>
-                                {% endif %}
-                            </td>
-                            <td style="text-align: right; display: flex; justify-content: flex-end; gap: 8px; align-items: center;">
-                                {% if r.remaining_balance > 0 %}
-                                <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="openPaymentModal({{ r.id }}, '{{ r.customer_name }}', {{ r.remaining_balance }})">
-                                    <i class="fas fa-hand-holding-usd"></i> Pay
-                                </button>
-                                {% else %}
-                                <span style="font-size: 0.85rem; color: var(--success);"><i class="fas fa-check-circle"></i> Cleared</span>
-                                {% endif %}
-                                <button onclick="deleteRec({{ r.id }})" class="btn btn-danger" style="padding: 6px 10px; font-size: 0.8rem;" title="Delete Record">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </td>
-                        </tr>
+                        {% if receivables %}
+                            {% for r in receivables %}
+                            <tr>
+                                <td><strong style="color: #f1f5f9; letter-spacing: 0.2px;">{{ r.invoice_ref }}</strong></td>
+                                <td>
+                                    <a href="javascript:void(0)" onclick="openCustomerLedger('{{ r.customer_name|replace('\'', '\\\'') }}')" style="color: #60a5fa; font-weight: 600; text-decoration: underline;">
+                                        {{ r.customer_name }}
+                                    </a>
+                                </td>
+                                <td class="col-currency" style="font-weight: 600;">₹{{ "{:,.2f}".format(r.total_amount) }}</td>
+                                <td class="col-currency" style="color: var(--success); font-weight: 600;">₹{{ "{:,.2f}".format(r.paid_amount) }}</td>
+                                <td class="col-currency" style="font-weight: 700; color: {% if r.remaining_balance > 0 %}#f87171{% else %}#94a3b8{% endif %}; font-size: 0.95rem;">
+                                    ₹{{ "{:,.2f}".format(r.remaining_balance) }}
+                                </td>
+                                <td class="col-badge">
+                                    {% if r.status == 'Paid' %}
+                                        <span class="badge badge-success"><i class="fas fa-check"></i> Paid</span>
+                                    {% elif r.status == 'Partial' %}
+                                        <span class="badge badge-warning"><i class="fas fa-clock"></i> Partial</span>
+                                    {% else %}
+                                        <span class="badge badge-danger"><i class="fas fa-exclamation-circle"></i> Outstanding</span>
+                                    {% endif %}
+                                </td>
+                                <td class="col-action">
+                                    <div class="table-actions-group">
+                                        <button type="button"
+                                                onclick="viewReceivableDetails('{{ r.invoice_ref }}', '{{ r.receivable_no }}', '{{ r.customer_name|replace('\'', '\\\'') }}', '{{ r.invoice_date or '' }}', '{{ r.due_date or '' }}', {{ r.total_amount }}, {{ r.paid_amount }}, {{ r.remaining_balance }}, '{{ r.status }}', {{ r.id }})"
+                                                class="btn-details" title="View Full Record Details">
+                                            <i class="fas fa-eye"></i> View
+                                        </button>
+                                        {% if r.remaining_balance > 0 %}
+                                            <button onclick="openReceiveModal({{ r.id }}, '{{ r.customer_name|replace('\'', '\\\'') }}', '{{ r.invoice_ref }}', {{ r.remaining_balance }})"
+                                                    class="btn-action-sm btn-primary" title="Record Receipt">
+                                                <i class="fas fa-hand-holding-usd"></i> Receive
+                                            </button>
+                                        {% else %}
+                                            <span class="badge badge-secondary" style="font-size: 0.72rem;"><i class="fas fa-check-double"></i> Settled</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
                         {% else %}
-                        <tr>
-                            <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">
-                                No accounts receivable records found.
-                            </td>
-                        </tr>
-                        {% endfor %}
+                            <tr>
+                                <td colspan="7" class="text-center" style="color: var(--text-muted); padding: 40px 20px;">
+                                    <i class="fas fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 10px; opacity: 0.4;"></i>
+                                    No customer receivables found matching criteria.
+                                </td>
+                            </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- New Receivable Modal -->
-    <div id="recModal" class="modal-overlay">
-        <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
-                <h3 style="color: white;"><i class="fas fa-user-plus" style="color: var(--accent);"></i> New Accounts Receivable</h3>
-                <button onclick="closeRecModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+    <!-- Collection Modal -->
+    <div id="receiveModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 480px; margin: 20px; border-color: var(--primary);">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3><i class="fas fa-hand-holding-usd" style="color: var(--primary);"></i> Record Customer Receipt</h3>
+                <button onclick="closeReceiveModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
             </div>
-            <form id="recForm">
+            <form onsubmit="submitReceipt(event)">
+                <input type="hidden" id="modalRecId">
                 <div class="form-group">
-                    <label class="form-label">Customer / Party Name</label>
-                    <input type="text" id="recCustomer" class="form-control" placeholder="e.g. Sri Raman Traders" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Contact Phone</label>
-                    <input type="text" id="recPhone" class="form-control" placeholder="e.g. 9842100123">
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div class="form-group">
-                        <label class="form-label">Invoice Ref</label>
-                        <input type="text" id="recInvoice" class="form-control" placeholder="e.g. INV-2026-88">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Due Date</label>
-                        <input type="date" id="recDueDate" class="form-control" required>
-                    </div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div class="form-group">
-                        <label class="form-label">Total Amount (₹)</label>
-                        <input type="number" step="0.01" id="recTotal" class="form-control" placeholder="e.g. 45000.00" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Advance Paid (₹)</label>
-                        <input type="number" step="0.01" id="recPaid" class="form-control" value="0.00">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Notes</label>
-                    <input type="text" id="recNotes" class="form-control" placeholder="Credit terms or remarks">
-                </div>
-                <div style="display: flex; gap: 12px; margin-top: 25px;">
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Create Receivable Record</button>
-                    <button type="button" onclick="closeRecModal()" class="btn btn-secondary">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Record Payment Modal -->
-    <div id="paymentModal" class="modal-overlay">
-        <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px;">
-                <h3 style="color: white;"><i class="fas fa-hand-holding-usd" style="color: var(--success);"></i> Record Payment Received</h3>
-                <button onclick="closePaymentModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
-            </div>
-            <form id="paymentForm">
-                <input type="hidden" id="payRecId">
-                <div class="form-group">
-                    <label class="form-label">Customer</label>
-                    <input type="text" id="payCustomerName" class="form-control" readonly style="opacity: 0.7;">
+                    <label class="form-label">Customer & Invoice</label>
+                    <input type="text" id="modalCustomerInfo" class="form-control" readonly style="background: rgba(0,0,0,0.2);">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Amount Received (₹)</label>
-                    <input type="number" step="0.01" id="payAmount" class="form-control" required>
+                    <input type="number" step="0.01" id="modalRecAmount" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Payment Method</label>
-                    <select id="payMethod" class="form-select" required>
-                        <option value="Bank Transfer">Bank Transfer (NEFT/RTGS/IMPS)</option>
-                        <option value="UPI">UPI</option>
+                    <label class="form-label">Payment Mode</label>
+                    <select id="modalRecMethod" class="form-select">
+                        <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
                         <option value="Cash">Cash</option>
+                        <option value="Bank Transfer">Bank Transfer (NEFT/RTGS)</option>
+                        <option value="Card">Card</option>
                         <option value="Cheque">Cheque</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Reference No.</label>
-                    <input type="text" id="payRefNo" class="form-control" placeholder="e.g. UTR-9988122">
+                    <label class="form-label">Reference / Receipt No.</label>
+                    <input type="text" id="modalRecRef" class="form-control" placeholder="e.g. UPI-REC-901">
                 </div>
-                <div style="display: flex; gap: 12px; margin-top: 25px;">
-                    <button type="submit" class="btn btn-success" style="flex: 1;">Submit Payment</button>
-                    <button type="button" onclick="closePaymentModal()" class="btn btn-secondary">Cancel</button>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Save Receipt</button>
+                    <button type="button" onclick="closeReceiveModal()" class="btn btn-secondary">Cancel</button>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- Credit Note Modal -->
+    <div id="creditNoteModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 480px; margin: 20px; border-color: #3b82f6;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;"><i class="fas fa-file-invoice-dollar" style="color: #60a5fa;"></i> Issue Customer Credit Note</h3>
+                <button onclick="closeCreditNoteModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form onsubmit="submitCreditNote(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Customer Name</label>
+                    <input type="text" id="cnCustomer" class="form-control" placeholder="e.g. Ramesh Kumar" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Invoice Ref (Optional)</label>
+                    <input type="text" id="cnInvoiceRef" class="form-control" placeholder="e.g. 101">
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Credit Amount (₹)</label>
+                    <input type="number" step="0.01" id="cnAmount" class="form-control" placeholder="0.00" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Tax Amount included (₹)</label>
+                    <input type="number" step="0.01" id="cnTaxAmount" class="form-control" placeholder="0.00" value="0.00">
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="form-label">Reason / Item Returned</label>
+                    <input type="text" id="cnReason" class="form-control" placeholder="e.g. Goods return / price adjustment" required>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Post Credit Note</button>
+                    <button type="button" onclick="closeCreditNoteModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Customer Advance Modal -->
+    <div id="advanceModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 480px; margin: 20px; border-color: #10b981;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;"><i class="fas fa-hand-holding-usd" style="color: #34d399;"></i> Record Customer Advance</h3>
+                <button onclick="closeAdvanceModal()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <form onsubmit="submitAdvance(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Customer Name</label>
+                    <input type="text" id="advCustomer" class="form-control" placeholder="Customer Name" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Advance Amount (₹)</label>
+                    <input type="number" step="0.01" id="advAmount" class="form-control" placeholder="0.00" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label">Payment Method</label>
+                    <select id="advMethod" class="form-select">
+                        <option value="UPI">UPI</option>
+                        <option value="Bank Transfer">Bank Current Account</option>
+                        <option value="Cash">Cash on Hand</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label class="form-label">Narration</label>
+                    <input type="text" id="advNarration" class="form-control" placeholder="e.g. Booking advance deposit">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Save Customer Advance</button>
+                    <button type="button" onclick="closeAdvanceModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Customer Ledger Modal -->
+    <div id="customerLedgerModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center;">
+        <div class="glass-panel" style="width: 100%; max-width: 800px; max-height: 85vh; display: flex; flex-direction: column; margin: 20px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 id="custLedgerTitle" style="margin: 0;"><i class="fas fa-book" style="color: #60a5fa;"></i> Customer Statement</h3>
+                <button onclick="closeCustomerLedger()" style="background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer;">&times;</button>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 10px 15px; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem;">
+                <div>Total Invoiced: <strong id="custLedgerInvoiced" style="color: #60a5fa;">₹0.00</strong></div>
+                <div>Total Collected: <strong id="custLedgerCollected" style="color: #34d399;">₹0.00</strong></div>
+                <div>Closing Balance: <strong id="custLedgerClosing" style="color: #f87171;">₹0.00</strong></div>
+            </div>
+            <div class="table-responsive" style="flex: 1; overflow-y: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Voucher #</th>
+                            <th>Description</th>
+                            <th class="col-currency">Invoiced (Dr)</th>
+                            <th class="col-currency">Paid (Cr)</th>
+                            <th class="col-currency">Running Bal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="custLedgerBody">
+                        <tr><td colspan="6" class="text-center">Loading statement...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script>
-        function openRecModal() { document.getElementById('recModal').style.display = 'flex'; }
-        function closeRecModal() { document.getElementById('recModal').style.display = 'none'; }
-
-        function openPaymentModal(id, name, rem) {
-            document.getElementById('payRecId').value = id;
-            document.getElementById('payCustomerName').value = name;
-            document.getElementById('payAmount').value = rem;
-            document.getElementById('paymentModal').style.display = 'flex';
+        function openReceiveModal(id, customer, invoice, balance) {
+            document.getElementById('modalRecId').value = id;
+            document.getElementById('modalCustomerInfo').value = `${customer} (Bill #${invoice}) - Due: ₹${balance.toFixed(2)}`;
+            document.getElementById('modalRecAmount').value = balance.toFixed(2);
+            document.getElementById('modalRecAmount').max = balance;
+            document.getElementById('receiveModal').style.display = 'flex';
         }
-        function closePaymentModal() { document.getElementById('paymentModal').style.display = 'none'; }
 
-        document.getElementById('recForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const payload = {
-                customer_name: document.getElementById('recCustomer').value,
-                contact_phone: document.getElementById('recPhone').value,
-                invoice_ref: document.getElementById('recInvoice').value,
-                due_date: document.getElementById('recDueDate').value,
-                total_amount: document.getElementById('recTotal').value,
-                paid_amount: document.getElementById('recPaid').value,
-                notes: document.getElementById('recNotes').value
-            };
-            const res = await fetch('/api/receivables/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.status === 'success') location.reload();
-            else alert(data.error);
-        });
+        function closeReceiveModal() {
+            document.getElementById('receiveModal').style.display = 'none';
+        }
 
-        document.getElementById('paymentForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const payload = {
-                rec_id: document.getElementById('payRecId').value,
-                amount_paid: document.getElementById('payAmount').value,
-                payment_method: document.getElementById('payMethod').value,
-                reference_no: document.getElementById('payRefNo').value
-            };
-            const res = await fetch('/api/receivables/pay', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.status === 'success') location.reload();
-            else alert(data.error);
-        });
+        function openCreditNoteModal() {
+            document.getElementById('creditNoteModal').style.display = 'flex';
+        }
+        function closeCreditNoteModal() {
+            document.getElementById('creditNoteModal').style.display = 'none';
+        }
 
-        async function deleteRec(recId) {
-            if (!confirm('Are you sure you want to delete this receivable record?')) return;
+        function openAdvanceModal() {
+            document.getElementById('advanceModal').style.display = 'flex';
+        }
+        function closeAdvanceModal() {
+            document.getElementById('advanceModal').style.display = 'none';
+        }
+
+        function closeCustomerLedger() {
+            document.getElementById('customerLedgerModal').style.display = 'none';
+        }
+
+        async function openCustomerLedger(customerName) {
+            document.getElementById('custLedgerTitle').innerText = 'Customer Statement: ' + customerName;
+            document.getElementById('customerLedgerModal').style.display = 'flex';
+            const tbody = document.getElementById('custLedgerBody');
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">Fetching ledger data...</td></tr>';
+
             try {
-                const res = await fetch('/api/receivables/delete', {
+                const res = await fetch('/api/ar/ledger?customer_name=' + encodeURIComponent(customerName));
+                const json = await res.json();
+                if (json.status === 'success' && json.data) {
+                    const d = json.data;
+                    document.getElementById('custLedgerInvoiced').innerText = '₹' + d.total_invoiced.toLocaleString('en-IN', {minimumFractionDigits: 2});
+                    document.getElementById('custLedgerCollected').innerText = '₹' + d.total_collected.toLocaleString('en-IN', {minimumFractionDigits: 2});
+                    document.getElementById('custLedgerClosing').innerText = '₹' + d.closing_balance.toLocaleString('en-IN', {minimumFractionDigits: 2});
+
+                    if (d.movements && d.movements.length > 0) {
+                        tbody.innerHTML = d.movements.map(m => `
+                            <tr>
+                                <td style="font-size: 0.8rem; color: var(--text-muted);">${m.date}</td>
+                                <td><a href="javascript:void(0)" onclick="showRecordDetails('journal', ${m.entry_id})" style="color: var(--accent); font-weight: 600;">${m.entry_number}</a></td>
+                                <td style="font-size: 0.85rem;">${m.description}</td>
+                                <td class="col-currency">${m.debit > 0 ? '₹' + m.debit.toLocaleString('en-IN', {minimumFractionDigits: 2}) : '—'}</td>
+                                <td class="col-currency" style="color: #34d399;">${m.credit > 0 ? '₹' + m.credit.toLocaleString('en-IN', {minimumFractionDigits: 2}) : '—'}</td>
+                                <td class="col-currency" style="font-weight: 700;">₹${m.running_balance.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `).join('');
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 20px; color: var(--text-muted);">No transactions found for this customer.</td></tr>';
+                    }
+                }
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center" style="color: #f87171;">Failed to load statement: ${err.message}</td></tr>`;
+            }
+        }
+
+        async function submitCreditNote(e) {
+            e.preventDefault();
+            const payload = {
+                customer_name: document.getElementById('cnCustomer').value,
+                invoice_ref: document.getElementById('cnInvoiceRef').value,
+                amount: parseFloat(document.getElementById('cnAmount').value),
+                tax_amount: parseFloat(document.getElementById('cnTaxAmount').value || 0.0),
+                reason: document.getElementById('cnReason').value
+            };
+
+            try {
+                const res = await fetch('/api/ar/credit-note', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rec_id: recId })
+                    body: JSON.stringify(payload)
                 });
                 const data = await res.json();
-                if (data.status === 'success') location.reload();
-                else alert('Error: ' + data.error);
+                if (data.status === 'success') {
+                    alert('Credit Note posted successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
             } catch (err) {
-                alert('Failed to connect to backend.');
+                alert('Network error: ' + err.message);
             }
+        }
+
+        async function submitAdvance(e) {
+            e.preventDefault();
+            const payload = {
+                customer_name: document.getElementById('advCustomer').value,
+                amount: parseFloat(document.getElementById('advAmount').value),
+                payment_method: document.getElementById('advMethod').value,
+                narration: document.getElementById('advNarration').value
+            };
+
+            try {
+                const res = await fetch('/api/ar/advance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('Customer Advance recorded successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
+
+        function submitReceipt(e) {
+            e.preventDefault();
+            const payload = {
+                receivable_id: document.getElementById('modalRecId').value,
+                amount: document.getElementById('modalRecAmount').value,
+                payment_method: document.getElementById('modalRecMethod').value,
+                reference_no: document.getElementById('modalRecRef').value
+            };
+
+            fetch('/api/receivables/pay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error: ' + res.message);
+                }
+            });
+        }
+
+        function viewReceivableDetails(invoiceRef, receivableNo, customer, date, dueDate, total, paid, balance, status, id) {
+            showRecordDetails({
+                title: 'Sales Bill: ' + invoiceRef,
+                subtitle: 'Customer Accounts Receivable & Credit Invoice Record',
+                icon: 'fas fa-users',
+                iconColor: '#60a5fa',
+                badge: {
+                    text: status === 'Paid' ? 'Paid' : (status === 'Partial' ? 'Partial' : 'Outstanding'),
+                    class: status === 'Paid' ? 'badge-success' : (status === 'Partial' ? 'badge-warning' : 'badge-danger')
+                },
+                sections: [
+                    {
+                        title: 'Invoice & Billing Details',
+                        icon: 'fas fa-file-invoice-dollar',
+                        fields: [
+                            { label: 'Sales Bill #', value: invoiceRef, bold: true },
+                            { label: 'Receivable Voucher #', value: receivableNo, code: true },
+                            { label: 'Invoice Date', value: date || '—' },
+                            { label: 'Due Date', value: dueDate || 'Immediate' },
+                            { label: 'Source Module', value: 'Sales Billing System', badgeClass: 'source-badge source-sales' }
+                        ]
+                    },
+                    {
+                        title: 'Customer Information',
+                        icon: 'fas fa-user-circle',
+                        fields: [
+                            { label: 'Customer Name', value: customer, fullWidth: true, bold: true }
+                        ]
+                    },
+                    {
+                        title: 'Receivable & Collections Breakdown',
+                        icon: 'fas fa-coins',
+                        fields: [
+                            { label: 'Total Invoiced Amount', value: '₹' + Number(total).toLocaleString('en-IN', {minimumFractionDigits: 2}) },
+                            { label: 'Total Collected / Paid', value: '₹' + Number(paid).toLocaleString('en-IN', {minimumFractionDigits: 2}), color: '#34d399' },
+                            { label: 'Remaining Outstanding', value: '₹' + Number(balance).toLocaleString('en-IN', {minimumFractionDigits: 2}), color: balance > 0 ? '#f87171' : '#94a3b8', bold: true }
+                        ]
+                    }
+                ],
+                actions: balance > 0 ? [
+                    {
+                        label: 'Receive Payment',
+                        icon: 'fas fa-hand-holding-usd',
+                        class: 'btn-primary',
+                        onClick: () => openReceiveModal(id, customer, invoiceRef, balance)
+                    }
+                ] : []
+            });
         }
     </script>
 </body>

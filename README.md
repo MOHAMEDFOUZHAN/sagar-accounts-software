@@ -20,8 +20,8 @@ GROSS PROFIT - OPERATING EXPENSES = NET PROFIT
 ```
 
 ## Default Credentials
-- **Admin:** `admin` / `admin123`
-- **Accountant:** `accountant` / `account123`
+- **Accounts:** `accounts` / `1234` (or `accounts`)
+- **Accountant:** `accountant` / `1234`
 
 ## Setup
 

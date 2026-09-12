@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Integration & Synchronization Health</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-title">
+                <h1>Integration & Synchronization Health</h1>
+                <p>Idempotent pipeline connecting Jai Agency (Current Sales & Inventory) to Accounts</p>
+            </div>
+            <button onclick="triggerSync()" class="btn btn-primary" id="syncBtn">
+                <i class="fas fa-sync-alt" id="syncIcon"></i> Run Full Synchronization
+            </button>
+        </div>
+
+        <div class="formula-card" style="margin-bottom: 25px;">
+            <i class="fas fa-shield-alt"></i>
+            <strong>Strict Idempotency & Lifecycle Invariant:</strong> Every transaction from Jai Agency has an immutable <code>(source_module, source_entity, source_id)</code> registry entry. API retries, network repetitions, and page reloads are safely ignored without duplicate journal entries.
+        </div>
+
+        <!-- Registry Status KPI Cards -->
+        <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 25px;">
+            <div class="kpi-card" style="border-top: 3px solid var(--primary);">
+                <div class="kpi-title">Total Registered</div>
+                <div class="kpi-value" style="font-size: 1.6rem; color: #f8fafc;">{{ summary.total_records if summary else 0 }}</div>
+                <span class="kpi-badge badge-info">Transactions</span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid var(--success);">
+                <div class="kpi-title">Posted to Ledger</div>
+                <div class="kpi-value" style="font-size: 1.6rem; color: var(--success);">{{ summary.posted if summary else 0 }}</div>
+                <span class="kpi-badge badge-success">Vouchers Committed</span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid #f59e0b;">
+                <div class="kpi-title">Pending Sync / Drafts</div>
+                <div class="kpi-value" style="font-size: 1.6rem; color: #f59e0b;">{{ summary.pending if summary else 0 }}</div>
+                <span class="kpi-badge badge-warning">Awaiting Finalization</span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid #ef4444;">
+                <div class="kpi-title">Sync Failures</div>
+                <div class="kpi-value" style="font-size: 1.6rem; color: {% if summary and summary.failed > 0 %}#ef4444{% else %}var(--text-muted){% endif %};">
+                    {{ summary.failed if summary else 0 }}
+                </div>
+                <span class="kpi-badge {% if summary and summary.failed > 0 %}badge-danger{% else %}badge-info{% endif %}">
+                    {% if summary and summary.failed > 0 %}Attention Required{% else %}All Healthy{% endif %}
+                </span>
+            </div>
+
+            <div class="kpi-card" style="border-top: 3px solid #8b5cf6;">
+                <div class="kpi-title">Reversals / Voided</div>
+                <div class="kpi-value" style="font-size: 1.6rem; color: #a78bfa;">{{ summary.reversed if summary else 0 }}</div>
+                <span class="kpi-badge badge-info">Cancelled Upstream</span>
+            </div>
+        </div>
+
+        <!-- Latest Sync Statistics -->
+        <div class="glass-panel" style="margin-bottom: 25px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3><i class="fas fa-tachometer-alt"></i> Synchronization Pipeline Metrics</h3>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Last Run: {{ stats.synced_at }}</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 200px;">Source Pipeline</th>
+                            <th>Source Entity</th>
+                            <th class="col-currency" style="width: 140px;">New Synced</th>
+                            <th class="col-currency" style="width: 180px;">Skipped (Deduplicated)</th>
+                            <th class="col-currency" style="width: 110px;">Errors</th>
+                            <th class="col-badge" style="width: 130px;">Pipeline Health</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong style="color: #f1f5f9;">Jai Agency POS</strong></td>
+                            <td>Sales Bills (<code>sales_log</code>)</td>
+                            <td class="col-currency" style="color: var(--success); font-weight: 700;">{{ stats.sales_bills.synced }}</td>
+                            <td class="col-currency" style="color: var(--accent); font-weight: 700;">{{ stats.sales_bills.skipped }}</td>
+                            <td class="col-currency" style="color: {% if stats.sales_bills.errors > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">{{ stats.sales_bills.errors }}</td>
+                            <td class="col-badge"><span class="badge badge-success"><i class="fas fa-check-circle"></i> Healthy</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong style="color: #f1f5f9;">Jai Agency POS</strong></td>
+                            <td>Customer Credit Payments (<code>credit_payments</code>)</td>
+                            <td class="col-currency" style="color: var(--success); font-weight: 700;">{{ stats.customer_credit_payments.synced if stats.customer_credit_payments else 0 }}</td>
+                            <td class="col-currency" style="color: var(--accent); font-weight: 700;">{{ stats.customer_credit_payments.skipped if stats.customer_credit_payments else 0 }}</td>
+                            <td class="col-currency" style="color: {% if stats.customer_credit_payments and stats.customer_credit_payments.errors > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">{{ stats.customer_credit_payments.errors if stats.customer_credit_payments else 0 }}</td>
+                            <td class="col-badge"><span class="badge badge-success"><i class="fas fa-check-circle"></i> Healthy</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong style="color: #f1f5f9;">Jai Agency POS</strong></td>
+                            <td>Counter Expenses (<code>expenses</code>)</td>
+                            <td class="col-currency" style="color: var(--success); font-weight: 700;">{{ stats.sales_expenses.synced }}</td>
+                            <td class="col-currency" style="color: var(--accent); font-weight: 700;">{{ stats.sales_expenses.skipped }}</td>
+                            <td class="col-currency" style="color: {% if stats.sales_expenses.errors > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">{{ stats.sales_expenses.errors }}</td>
+                            <td class="col-badge"><span class="badge badge-success"><i class="fas fa-check-circle"></i> Healthy</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong style="color: #f1f5f9;">Jai Agency POS</strong></td>
+                            <td>Sales Returns (<code>returns_log</code>)</td>
+                            <td class="col-currency" style="color: var(--success); font-weight: 700;">{{ stats.sales_returns.synced }}</td>
+                            <td class="col-currency" style="color: var(--accent); font-weight: 700;">{{ stats.sales_returns.skipped }}</td>
+                            <td class="col-currency" style="color: {% if stats.sales_returns.errors > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">{{ stats.sales_returns.errors }}</td>
+                            <td class="col-badge"><span class="badge badge-success"><i class="fas fa-check-circle"></i> Healthy</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong style="color: #f1f5f9;">Jai Agency Inventory</strong></td>
+                            <td>Inward Purchases (<code>storage</code>)</td>
+                            <td class="col-currency" style="color: var(--success); font-weight: 700;">{{ stats.inventory_invoices.synced }}</td>
+                            <td class="col-currency" style="color: var(--accent); font-weight: 700;">{{ stats.inventory_invoices.skipped }}</td>
+                            <td class="col-currency" style="color: {% if stats.inventory_invoices.errors > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">{{ stats.inventory_invoices.errors }}</td>
+                            <td class="col-badge"><span class="badge badge-success"><i class="fas fa-check-circle"></i> Healthy</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong style="color: #f1f5f9;">Jai Agency Inventory</strong></td>
+                            <td>Supplier Payments (<code>supplier_payments</code>)</td>
+                            <td class="col-currency" style="color: var(--success); font-weight: 700;">{{ stats.supplier_payments.synced if stats.supplier_payments else 0 }}</td>
+                            <td class="col-currency" style="color: var(--accent); font-weight: 700;">{{ stats.supplier_payments.skipped if stats.supplier_payments else 0 }}</td>
+                            <td class="col-currency" style="color: {% if stats.supplier_payments and stats.supplier_payments.errors > 0 %}var(--danger){% else %}var(--text-muted){% endif %};">{{ stats.supplier_payments.errors if stats.supplier_payments else 0 }}</td>
+                            <td class="col-badge"><span class="badge badge-success"><i class="fas fa-check-circle"></i> Healthy</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Sync Failures & Safe Recovery Panel -->
+        <div class="glass-panel">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3><i class="fas fa-exclamation-circle" style="color: {% if failures and failures|length > 0 %}#ef4444{% else %}var(--success){% endif %};"></i> Sync Failures & Safe Recovery</h3>
+                {% if failures and failures|length > 0 %}
+                    <button class="btn btn-sm btn-secondary" onclick="retryAllFailures()">
+                        <i class="fas fa-redo"></i> Retry All
+                    </button>
+                {% endif %}
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 140px;">Module / Entity</th>
+                            <th style="width: 120px;">Source ID</th>
+                            <th>Error Details</th>
+                            <th style="width: 100px;">Retries</th>
+                            <th style="width: 160px;">Last Attempt</th>
+                            <th style="width: 120px; text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if failures and failures|length > 0 %}
+                            {% for f in failures %}
+                                <tr>
+                                    <td>
+                                        <strong style="color: #f1f5f9;">{{ f.source_module }}</strong>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);">{{ f.source_entity }}</div>
+                                    </td>
+                                    <td>
+                                        <span style="font-family: monospace; font-weight: 700; color: var(--accent);">#{{ f.source_id }}</span>
+                                    </td>
+                                    <td>
+                                        <div style="font-size: 0.8rem; color: #fca5a5; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ f.error_info }}">
+                                            {{ f.error_info or 'Unknown error occurred during sync' }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-warning">{{ f.retry_count }}</span>
+                                    </td>
+                                    <td style="font-size: 0.78rem; font-family: monospace; color: var(--text-muted);">
+                                        {{ f.last_attempt_at or f.created_at }}
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <button class="btn btn-sm btn-secondary" onclick="retrySyncItem({{ f.id }})">
+                                            <i class="fas fa-redo"></i> Retry
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 30px; color: var(--text-muted);">
+                                    <i class="fas fa-check-circle" style="color: var(--success); font-size: 2rem; margin-bottom: 8px; display: block;"></i>
+                                    No synchronization failures detected. All transactions are cleanly mapped and posted.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function triggerSync() {
+            const btn = document.getElementById('syncBtn');
+            const icon = document.getElementById('syncIcon');
+            btn.disabled = true;
+            icon.classList.add('fa-spin');
+
+            fetch('/api/sync/run', { method: 'POST' })
+                .then(r => r.json())
+                .then(res => {
+                    btn.disabled = false;
+                    icon.classList.remove('fa-spin');
+                    if (res.status === 'success') {
+                        location.reload();
+                    } else {
+                        alert('Sync error: ' + (res.message || 'Unknown'));
+                    }
+                })
+                .catch(err => {
+                    btn.disabled = false;
+                    icon.classList.remove('fa-spin');
+                    alert('Sync request error: ' + err);
+                });
+        }
+
+        async function retrySyncItem(regId) {
+            try {
+                const res = await fetch('/api/sync/retry', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ registry_id: regId })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('Retry succeeded: ' + data.message);
+                    location.reload();
+                } else {
+                    alert('Retry failed: ' + data.message);
+                }
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
+
+        async function retryAllFailures() {
+            try {
+                const res = await fetch('/api/sync/retry', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json();
+                alert(data.message || 'Retry processed.');
+                location.reload();
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>

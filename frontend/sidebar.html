@@ -1,72 +1,158 @@
-<!-- Modular Sidebar Component -->
+<!-- Universal Unified Sidebar Component -->
 <div class="sidebar">
     <div class="brand">
-        <i class="fas fa-calculator"></i>
+        <i class="fas fa-balance-scale-right"></i>
         <div>
             SAGAR <span style="color: var(--primary);">ACCOUNTS</span>
-            <span class="brand-subtitle">STANDALONE SYSTEM</span>
+            <span class="brand-subtitle" style="display: block; font-size: 0.65rem; color: var(--accent); font-weight: 600; letter-spacing: 1px;">FINANCIAL MANAGEMENT</span>
         </div>
     </div>
 
     <ul class="nav-menu">
+        <!-- Group 1: Overview & Entry -->
         <li>
             <a href="/dashboard" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
-                <i class="fas fa-chart-line"></i> Dashboard
+                <i class="fas fa-chart-pie"></i> Dashboard
             </a>
         </li>
         <li>
             <a href="/entry" class="nav-link {% if active_page == 'entry' %}active{% endif %}">
-                <i class="fas fa-plus-circle"></i> Quick Entry
+                <i class="fas fa-plus-circle"></i> Add Entry
+            </a>
+        </li>
+
+        <li class="nav-divider"></li>
+
+        <!-- Group 2: The 4 Main Accounting Sections -->
+        <li>
+            <a href="/profit-loss" class="nav-link {% if active_page == 'profit_loss' %}active{% endif %}">
+                <i class="fas fa-chart-line"></i> Profit & Loss
             </a>
         </li>
         <li>
-            <a href="/income" class="nav-link {% if active_page == 'income' %}active{% endif %}">
-                <i class="fas fa-arrow-down-left"></i> Income / Revenue
+            <a href="/trial-balance" class="nav-link {% if active_page == 'trial_balance' %}active{% endif %}">
+                <i class="fas fa-balance-scale"></i> Trial Balance
             </a>
         </li>
         <li>
-            <a href="/expenses" class="nav-link {% if active_page == 'expenses' %}active{% endif %}">
-                <i class="fas fa-arrow-up-right"></i> Expenses (COGS & OpEx)
+            <a href="/balance-sheet" class="nav-link {% if active_page == 'balance_sheet' %}active{% endif %}">
+                <i class="fas fa-file-invoice-dollar"></i> Balance Sheet
             </a>
         </li>
         <li>
-            <a href="/transactions" class="nav-link {% if active_page == 'transactions' %}active{% endif %}">
-                <i class="fas fa-exchange-alt"></i> All Transactions
+            <a href="/tax" class="nav-link {% if active_page == 'tax' %}active{% endif %}">
+                <i class="fas fa-percentage"></i> Tax (GST & TDS)
             </a>
         </li>
+
+        <li class="nav-divider"></li>
+
+        <!-- Group 3: Operational Registers & Modules -->
         <li>
-            <a href="/receivables" class="nav-link {% if active_page == 'receivables' %}active{% endif %}">
-                <i class="fas fa-hand-holding-usd"></i> Receivables
+            <a href="/sales-ledger" class="nav-link {% if active_page == 'sales' %}active{% endif %}">
+                <i class="fas fa-shopping-cart"></i> Sales
+                <span class="badge badge-subtle-success">Auto</span>
             </a>
         </li>
         <li>
             <a href="/payables" class="nav-link {% if active_page == 'payables' %}active{% endif %}">
-                <i class="fas fa-file-invoice-dollar"></i> Payables
+                <i class="fas fa-truck-loading"></i> Purchases
+                <span class="badge badge-subtle-accent">Auto</span>
+            </a>
+        </li>
+        <li>
+            <a href="/receivables" class="nav-link {% if active_page == 'receivables' %}active{% endif %}">
+                <i class="fas fa-users"></i> Customers
+            </a>
+        </li>
+        <li>
+            <a href="/banking" class="nav-link {% if active_page == 'banking' %}active{% endif %}">
+                <i class="fas fa-university"></i> Cash & Banking
+            </a>
+        </li>
+        <li>
+            <a href="/expenses" class="nav-link {% if active_page == 'expenses' %}active{% endif %}">
+                <i class="fas fa-receipt"></i> Expenses
+            </a>
+        </li>
+        <li>
+            <a href="/assets" class="nav-link {% if active_page == 'assets' %}active{% endif %}">
+                <i class="fas fa-landmark"></i> Assets
+            </a>
+        </li>
+        <li>
+            <a href="/liabilities" class="nav-link {% if active_page == 'liabilities' %}active{% endif %}">
+                <i class="fas fa-credit-card"></i> Liabilities
+            </a>
+        </li>
+        <li>
+            <a href="/equity" class="nav-link {% if active_page == 'equity' %}active{% endif %}">
+                <i class="fas fa-user-tie"></i> Capital & Drawings
+            </a>
+        </li>
+        <li>
+            <a href="/ledger" class="nav-link {% if active_page == 'ledger' %}active{% endif %}">
+                <i class="fas fa-book"></i> Ledger
             </a>
         </li>
         <li>
             <a href="/reports" class="nav-link {% if active_page == 'reports' %}active{% endif %}">
-                <i class="fas fa-file-alt"></i> P&L Reports
+                <i class="fas fa-file-invoice"></i> Reports
             </a>
         </li>
         <li>
-            <a href="/categories" class="nav-link {% if active_page == 'categories' %}active{% endif %}">
-                <i class="fas fa-tags"></i> Categories
+            <a href="/sync" class="nav-link {% if active_page == 'sync' %}active{% endif %}">
+                <i class="fas fa-sync-alt"></i> Sync
+            </a>
+        </li>
+
+        <li class="nav-divider"></li>
+
+        <!-- Group 4: Financial Control & Integrity -->
+        <li>
+            <a href="/periods" class="nav-link {% if active_page == 'periods' %}active{% endif %}">
+                <i class="fas fa-calendar-alt"></i> Periods & FY
             </a>
         </li>
         <li>
-            <a href="/test-center" class="nav-link {% if active_page == 'test_center' %}active{% endif %}">
-                <i class="fas fa-vial"></i> Test & Cleanup Center
+            <a href="/opening-balances" class="nav-link {% if active_page == 'opening_balances' %}active{% endif %}">
+                <i class="fas fa-door-open"></i> Opening Balances
+            </a>
+        </li>
+        <li>
+            <a href="/reconciliation" class="nav-link {% if active_page == 'reconciliation' %}active{% endif %}">
+                <i class="fas fa-check-double"></i> Reconciliation
+            </a>
+        </li>
+        <li>
+            <a href="/health-check" class="nav-link {% if active_page == 'health_check' %}active{% endif %}">
+                <i class="fas fa-heartbeat"></i> Health Check
+            </a>
+        </li>
+
+        <li class="nav-divider"></li>
+
+        <!-- Group 5: Data & Security -->
+        <li>
+            <a href="/audit" class="nav-link {% if active_page == 'audit' %}active{% endif %}">
+                <i class="fas fa-history"></i> Audit Trail
+            </a>
+        </li>
+        <li>
+            <a href="/backups" class="nav-link {% if active_page == 'backups' %}active{% endif %}">
+                <i class="fas fa-shield-alt"></i> Backup & Recovery
             </a>
         </li>
     </ul>
 
     <div class="user-profile">
         <div class="user-info">
-            <div class="user-avatar">{{ session.get('username', 'A')[0].upper() }}</div>
+            <div class="user-avatar">
+                {{ session.get('username', 'A')[0].upper() }}
+            </div>
             <div>
-                <div style="font-weight: 600; font-size: 0.9rem;">{{ session.get('full_name', 'Accountant') }}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">{{ session.get('role', 'admin') }}</div>
+                <div style="font-weight: 600; font-size: 0.85rem; color: #f8fafc;">{{ session.get('full_name', 'Accountant') }}</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">{{ session.get('role', 'Admin') }}</div>
             </div>
         </div>
         <a href="/logout" class="logout-btn" title="Logout">
@@ -74,3 +160,7 @@
         </a>
     </div>
 </div>
+
+<!-- Global Reusable Record Details Modal Component -->
+{% include 'detail_modal.html' %}
+<script src="/static/detail_modal.js"></script>

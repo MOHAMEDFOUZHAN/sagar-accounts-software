@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — General Account Ledger</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .source-badge {
+            font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase;
+        }
+        .source-sales { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
+        .source-inventory { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); }
+        .source-manual { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-title">
+                <h1>General Account Ledger</h1>
+                <p>Complete double-entry running balance statement with source module provenance</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <a href="/export/ledger.csv?account_id={{ selected_account_id }}&start_date={{ start_date }}&end_date={{ end_date }}" class="btn btn-secondary">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </a>
+                <button onclick="window.print()" class="btn btn-secondary">
+                    <i class="fas fa-print"></i> Print
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Form -->
+        <div class="glass-panel" style="padding: 20px 24px; margin-bottom: 25px;">
+            <form method="GET" action="/ledger" class="filter-bar-grid">
+                <div class="filter-field-lg">
+                    <label class="form-label"><i class="fas fa-sitemap"></i> Select Account Ledger</label>
+                    <select name="account_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">── All Accounts (Full Transaction Ledger) ──</option>
+                        {% for a in accounts %}
+                            <option value="{{ a.id }}" {% if selected_account_id|string == a.id|string %}selected{% endif %}>
+                                [{{ a.code }}] {{ a.name }} ({{ a.major_type }} - {{ a.sub_type }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field-sm">
+                    <label class="form-label"><i class="fas fa-calendar-alt"></i> From Date</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+                </div>
+                <div class="filter-field-sm">
+                    <label class="form-label"><i class="fas fa-calendar-alt"></i> To Date</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+                </div>
+                <div class="filter-actions">
+                    <button type="submit" class="btn btn-primary" style="padding: 12px 20px;">
+                        <i class="fas fa-filter"></i> Filter
+                    </button>
+                    <a href="/ledger" class="btn btn-secondary" style="padding: 12px 16px;" title="Reset Filter">
+                        <i class="fas fa-undo"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Selected Account Title -->
+        {% if selected_account %}
+            <div style="background: rgba(99, 102, 241, 0.12); border: 1px solid var(--primary); padding: 14px 20px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.6px;">Active Account Statement</span>
+                    <h2 style="font-size: 1.25rem; font-weight: 800; color: white; margin-top: 2px;">[{{ selected_account.code }}] {{ selected_account.name }}</h2>
+                </div>
+                <span class="badge badge-purple" style="font-size: 0.8rem; padding: 6px 14px;">{{ selected_account.major_type }} • {{ selected_account.sub_type }}</span>
+            </div>
+        {% endif %}
+
+        <!-- Ledger Table -->
+        <div class="glass-panel">
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 120px;">Date</th>
+                            <th>Narration / Particulars</th>
+                            <th class="col-currency" style="width: 130px;">Debit (₹)</th>
+                            <th class="col-currency" style="width: 130px;">Credit (₹)</th>
+                            <th class="col-currency" style="width: 140px;">Running Balance</th>
+                            <th class="col-action" style="width: 100px;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if ledger_entries %}
+                            {% for e in ledger_entries %}
+                            <tr>
+                                <td class="col-nowrap" style="color: var(--text-muted); font-size: 0.85rem;">{{ e.entry_date }}</td>
+                                <td>
+                                    <div>
+                                        <span class="table-truncate" title="{{ e.narration }}" style="font-weight: 500;">
+                                            {{ e.narration }}
+                                        </span>
+                                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 3px;">
+                                            {% if e.reference_no %}
+                                                <span style="font-size: 0.72rem; color: var(--accent); font-weight: 600;">Ref: {{ e.reference_no }}</span>
+                                            {% endif %}
+                                            {% if not selected_account and e.account_name %}
+                                                <span style="font-size: 0.72rem; color: var(--text-muted);">[{{ e.account_code }}] {{ e.account_name }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="col-currency" style="color: {% if e.debit > 0 %}#34d399{% else %}#64748b{% endif %}; font-weight: 600;">
+                                    {% if e.debit > 0 %}₹{{ "{:,.2f}".format(e.debit) }}{% else %}—{% endif %}
+                                </td>
+                                <td class="col-currency" style="color: {% if e.credit > 0 %}#f87171{% else %}#64748b{% endif %}; font-weight: 600;">
+                                    {% if e.credit > 0 %}₹{{ "{:,.2f}".format(e.credit) }}{% else %}—{% endif %}
+                                </td>
+                                <td class="col-currency" style="font-weight: 700; color: #f8fafc; font-size: 0.95rem;">
+                                    ₹{{ "{:,.2f}".format(e.running_balance) }}
+                                </td>
+                                <td class="col-action">
+                                    <button type="button"
+                                            onclick="viewLedgerDetails('{{ e.entry_number }}', '{{ e.entry_date }}', '{{ e.source_module or 'manual' }}', '{{ e.reference_no or '' }}', '{{ e.narration|replace('\'', '\\\'') }}', '{{ e.account_code or '' }}', '{{ (e.account_name or '')|replace('\'', '\\\'') }}', {{ e.debit }}, {{ e.credit }}, {{ e.running_balance }})"
+                                            class="btn-details" title="View Full Journal Entry">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center" style="color: var(--text-muted); padding: 40px 20px;">
+                                    <i class="fas fa-book-open" style="font-size: 2rem; display: block; margin-bottom: 10px; opacity: 0.4;"></i>
+                                    No ledger entries found matching criteria.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function viewLedgerDetails(entryNo, date, source, refNo, narration, accountCode, accountName, debit, credit, balance) {
+            showRecordDetails({
+                title: 'Ledger Entry: ' + entryNo,
+                subtitle: 'Audited General Ledger Journal Voucher',
+                icon: 'fas fa-book',
+                iconColor: 'var(--primary)',
+                badge: {
+                    text: source.toUpperCase(),
+                    class: source === 'sales' ? 'badge-success' : (source === 'inventory' ? 'badge-info' : 'badge-secondary')
+                },
+                sections: [
+                    {
+                        title: 'Journal Voucher Details',
+                        icon: 'fas fa-file-alt',
+                        fields: [
+                            { label: 'Journal Entry #', value: entryNo, code: true },
+                            { label: 'Posting Date', value: date },
+                            { label: 'Reference #', value: refNo || '—', bold: true },
+                            { label: 'Source Module', value: source.charAt(0).toUpperCase() + source.slice(1) }
+                        ]
+                    },
+                    {
+                        title: 'Account Information',
+                        icon: 'fas fa-folder-open',
+                        fields: [
+                            { label: 'Account Code', value: accountCode || '—', code: true },
+                            { label: 'Account Name', value: accountName || '—', bold: true }
+                        ]
+                    },
+                    {
+                        title: 'Accounting Movement',
+                        icon: 'fas fa-balance-scale-right',
+                        fields: [
+                            { label: 'Debit (Inflow/Exp)', value: debit > 0 ? ('₹' + Number(debit).toLocaleString('en-IN', {minimumFractionDigits: 2})) : '—', color: debit > 0 ? '#34d399' : '#94a3b8', bold: debit > 0 },
+                            { label: 'Credit (Outflow/Rev)', value: credit > 0 ? ('₹' + Number(credit).toLocaleString('en-IN', {minimumFractionDigits: 2})) : '—', color: credit > 0 ? '#f87171' : '#94a3b8', bold: credit > 0 },
+                            { label: 'Running Balance', value: '₹' + Number(balance).toLocaleString('en-IN', {minimumFractionDigits: 2}), bold: true }
+                        ]
+                    },
+                    {
+                        title: 'Full Narration',
+                        icon: 'fas fa-align-left',
+                        fields: [
+                            { label: 'Narration / Particulars', value: narration || 'General journal posting', fullWidth: true }
+                        ]
+                    }
+                ]
+            });
+        }
+    </script>
+</body>
+</html>

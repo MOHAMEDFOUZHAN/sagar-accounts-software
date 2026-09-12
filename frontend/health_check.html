@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sagar Accounts — Accounting Health Check & Audit Matrix</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .score-gauge-card {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 25px;
+        }
+        .score-circle {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            font-weight: 800;
+            border: 4px solid var(--success);
+            color: var(--success);
+            flex-shrink: 0;
+            background: rgba(16, 185, 129, 0.05);
+        }
+        .filter-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .filter-tab {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .filter-tab.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+        .status-badge {
+            font-size: 0.72rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .st-pass {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .st-warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        .st-error {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .st-critical {
+            background: rgba(220, 38, 38, 0.25);
+            color: #f87171;
+            border: 1px solid #dc2626;
+            animation: pulse-glow 2s infinite;
+        }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+        .data-table th, .data-table td {
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="page-title">
+                <h1>24-Point Accounting Health & Integrity Audit Matrix</h1>
+                <p>Automated diagnostic engine auditing double-entry invariants, ledger equality, and subledger consistency</p>
+            </div>
+            <button class="btn btn-primary" onclick="runHealthCheckNow()">
+                <i class="fas fa-play" id="runIcon"></i> Run Full 24-Point Audit Now
+            </button>
+        </div>
+
+        <!-- Overall Score Card -->
+        <div class="score-gauge-card" id="gaugeCard">
+            <div class="score-circle" id="scoreCircle">--</div>
+            <div style="flex-grow: 1;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+                    <h2 style="margin: 0; font-size: 1.4rem; color: #f8fafc;">System Accounting Health: <span id="statusLabel">Checking...</span></h2>
+                    <span id="overallBadge" class="badge badge-info">AUDIT IN PROGRESS</span>
+                </div>
+                <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);" id="checkedAtText">
+                    Diagnostics comprehensively evaluate 24 mandatory accounting invariants across all layers.
+                </p>
+            </div>
+            <div style="display: flex; gap: 20px;">
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 800; color: #10b981;" id="passCount">0</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Pass</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 800; color: #f59e0b;" id="warnCount">0</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Warning</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 800; color: #f87171;" id="errCount">0</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Error</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 800; color: #ef4444;" id="critCount">0</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Critical</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="filter-tabs">
+            <button class="filter-tab active" onclick="setFilter('all')">All Checkpoints (24)</button>
+            <button class="filter-tab" onclick="setFilter('issues')">Issues Requiring Action (<span id="issueFilterCount">0</span>)</button>
+            <button class="filter-tab" onclick="setFilter('pass')">Passed Checkpoints (<span id="passFilterCount">0</span>)</button>
+        </div>
+
+        <!-- 24-Point Audit Matrix Table -->
+        <div class="glass-panel">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3><i class="fas fa-microscope"></i> Accounting Health Check Matrix</h3>
+                <span style="font-size: 0.8rem; color: var(--text-muted);" id="matrixCountLabel">24 checks configured</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Status</th>
+                            <th>Checkpoint Name</th>
+                            <th>Difference</th>
+                            <th>Affected Account / Transaction</th>
+                            <th>Possible Cause</th>
+                            <th>Recommended Remediation Action</th>
+                            <th style="width: 80px; text-align: center;">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="checksTableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 35px;">
+                                <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; display: block; margin-bottom: 8px;"></i>
+                                Executing full 24-point accounting audit diagnostics...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let fullCheckData = null;
+        let activeFilter = 'all';
+
+        async function runHealthCheckNow() {
+            const icon = document.getElementById('runIcon');
+            if (icon) icon.className = 'fas fa-spinner fa-spin';
+
+            try {
+                const res = await fetch('/api/health-check/run');
+                const data = await res.json();
+                fullCheckData = data;
+                renderHealthReport(data);
+            } catch (e) {
+                alert('Diagnostics audit failed: ' + e.message);
+            } finally {
+                if (icon) icon.className = 'fas fa-play';
+            }
+        }
+
+        function setFilter(filter) {
+            activeFilter = filter;
+            document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            if (fullCheckData) {
+                renderTableOnly(fullCheckData.checks || []);
+            }
+        }
+
+        function renderHealthReport(data) {
+            const scoreCircle = document.getElementById('scoreCircle');
+            const statusLabel = document.getElementById('statusLabel');
+            const overallBadge = document.getElementById('overallBadge');
+            const checkedAtText = document.getElementById('checkedAtText');
+
+            const score = data.health_score || 0;
+            scoreCircle.textContent = score;
+
+            let color = 'var(--success)';
+            let badgeClass = 'badge-success';
+
+            if (data.status === 'CRITICAL') {
+                color = 'var(--danger)';
+                badgeClass = 'badge-danger';
+            } else if (data.status === 'ERROR') {
+                color = '#f87171';
+                badgeClass = 'badge-danger';
+            } else if (data.status === 'WARNING') {
+                color = 'var(--warning)';
+                badgeClass = 'badge-warning';
+            }
+
+            scoreCircle.style.borderColor = color;
+            scoreCircle.style.color = color;
+            statusLabel.textContent = data.status;
+            statusLabel.style.color = color;
+            overallBadge.className = 'badge ' + badgeClass;
+            overallBadge.textContent = data.status;
+
+            checkedAtText.textContent = `Audit Executed: ${data.checked_at || 'Just now'} — Total Inconsistencies: ${data.total_issues || 0} / 24 Checkpoints`;
+
+            // Counters
+            const s = data.summary || {};
+            document.getElementById('passCount').textContent = s.pass || 0;
+            document.getElementById('warnCount').textContent = s.warning || 0;
+            document.getElementById('errCount').textContent = s.error || 0;
+            document.getElementById('critCount').textContent = s.critical || 0;
+
+            document.getElementById('issueFilterCount').textContent = data.total_issues || 0;
+            document.getElementById('passFilterCount').textContent = s.pass || 0;
+
+            renderTableOnly(data.checks || []);
+        }
+
+        function renderTableOnly(allChecks) {
+            const tbody = document.getElementById('checksTableBody');
+            tbody.innerHTML = '';
+
+            let filtered = allChecks;
+            if (activeFilter === 'issues') {
+                filtered = allChecks.filter(c => c.status !== 'PASS');
+            } else if (activeFilter === 'pass') {
+                filtered = allChecks.filter(c => c.status === 'PASS');
+            }
+
+            document.getElementById('matrixCountLabel').textContent = `Showing ${filtered.length} of ${allChecks.length} checkpoints`;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: var(--success); padding: 40px; font-weight: 600;">
+                            <i class="fas fa-check-double" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                            All checkpoints in this view are in 100% compliant state!
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            filtered.forEach(c => {
+                const tr = document.createElement('tr');
+                const stLower = c.status.toLowerCase();
+                const icon = c.status === 'PASS' ? 'fa-check' : (c.status === 'WARNING' ? 'fa-exclamation-triangle' : 'fa-times-circle');
+
+                let diffText = '0.00';
+                if (c.difference > 0) {
+                    diffText = c.difference > 50 ? `₹${c.difference.toLocaleString('en-IN', {minimumFractionDigits: 2})}` : c.difference;
+                }
+
+                tr.innerHTML = `
+                    <td><span class="status-badge st-${stLower}"><i class="fas ${icon}"></i> ${c.status}</span></td>
+                    <td><strong style="color: #f8fafc;">${c.check_name}</strong></td>
+                    <td style="font-weight: 700; color: ${c.difference > 0 ? '#f87171' : 'var(--text-muted)'}; font-family: monospace;">${diffText}</td>
+                    <td style="font-size: 0.85rem; color: var(--accent);">${c.affected_account || c.affected_transaction || '—'}</td>
+                    <td style="font-size: 0.85rem; color: var(--text-muted); max-width: 250px;">${c.possible_cause || 'Compliant with accounting standards.'}</td>
+                    <td style="font-size: 0.85rem; color: #94a3b8;"><i class="fas fa-wrench" style="color: var(--warning); margin-right: 4px;"></i> ${c.recommended_action}</td>
+                    <td style="text-align: center;">
+                        <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;" onclick="viewDetailModal(${JSON.stringify(c).replace(/"/g, '&quot;')})">
+                            <i class="fas fa-search-plus"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function viewDetailModal(c) {
+            showRecordDetails({
+                title: c.check_name,
+                subtitle: `Accounting Invariant Status: ${c.status}`,
+                icon: 'fas fa-heartbeat',
+                iconColor: c.status === 'PASS' ? 'var(--success)' : (c.status === 'CRITICAL' ? 'var(--danger)' : 'var(--warning)'),
+                badge: {
+                    text: c.status,
+                    class: c.status === 'PASS' ? 'badge-success' : (c.status === 'CRITICAL' ? 'badge-danger' : 'badge-warning')
+                },
+                sections: [
+                    {
+                        title: 'Audit Finding & Variance',
+                        icon: 'fas fa-info-circle',
+                        fields: [
+                            { label: 'Check Name', value: c.check_name },
+                            { label: 'Status', value: c.status },
+                            { label: 'Severity Level', value: c.severity },
+                            { label: 'Variance / Difference', value: c.difference },
+                            { label: 'Affected Account', value: c.affected_account || 'None (Global)' },
+                            { label: 'Affected Transaction', value: c.affected_transaction || 'None' },
+                            { label: 'Journal Reference', value: c.journal_reference || 'None' }
+                        ]
+                    },
+                    {
+                        title: 'Root Cause & Remediation',
+                        icon: 'fas fa-tools',
+                        fields: [
+                            { label: 'Possible Cause', value: c.possible_cause || 'No anomaly detected' },
+                            { label: 'Recommended Action', value: c.recommended_action }
+                        ]
+                    }
+                ]
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            runHealthCheckNow();
+        });
+    </script>
+</body>
+</html>
