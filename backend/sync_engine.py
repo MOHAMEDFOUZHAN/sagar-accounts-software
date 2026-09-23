@@ -11,6 +11,7 @@ from backend.db import (
 from backend.accounting_rules import AccountingRules
 from backend.double_entry_engine import DoubleEntryEngine
 from backend.audit_engine import AuditEngine
+from backend.inventory_engine import InventoryCostingEngine
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,14 @@ def _sync_sales_bills(jai_conn, stat):
                 amount_paid = round(float(bill.get("amount_paid") or 0.0), 2)
                 cust_name = str(bill.get("customer_name") or "General Customer").strip()
 
-                raw_hash = f"jai_sls_{b_id}_{b_total}_{gross_total}_{b_mode}_{b_status}_{b_date_str}_{balance}_{amount_paid}"
+                # Calculate COGS for this bill
+                bill_cogs_amt = 0.0
+                try:
+                    bill_cogs_amt, _ = InventoryCostingEngine.get_bill_cogs(int(b_id), jai_conn=jai_conn)
+                except Exception as c_err:
+                    logger.warning(f"Could not compute COGS for bill #{b_id}: {c_err}")
+
+                raw_hash = f"jai_sls_{b_id}_{b_total}_{gross_total}_{b_mode}_{b_status}_{b_date_str}_{balance}_{amount_paid}_{bill_cogs_amt}"
                 b_hash = hashlib.sha256(raw_hash.encode()).hexdigest()
 
                 acc_cur.execute(
@@ -157,8 +165,8 @@ def _sync_sales_bills(jai_conn, stat):
                         except Exception as rev_err:
                             logger.warning(f"Prior voucher reversal note for bill #{b_id}: {rev_err}")
 
-                # Post via AccountingRules & DoubleEntryEngine
-                res = AccountingRules.post_sales_bill(bill, conn=acc_conn)
+                # Post via AccountingRules & DoubleEntryEngine (incorporating true COGS)
+                res = AccountingRules.post_sales_bill(bill, cogs_amount=bill_cogs_amt, conn=acc_conn)
                 if not res:
                     stat["skipped"] += 1
                     continue
@@ -552,7 +560,14 @@ def _sync_sales_returns(jai_conn, stat):
                 r_amt = round(float(ret.get("refund_amount") or 0.0), 2)
                 r_date_str = str(ret.get("date") or datetime.date.today().isoformat())
 
-                raw_hash = f"jai_ret_{r_id}_{r_amt}_{ret.get('bill_id')}_{r_date_str}"
+                # Calculate COGS reversal for this return
+                ret_cogs_amt = 0.0
+                try:
+                    ret_cogs_amt = InventoryCostingEngine.get_return_cogs(int(r_id), jai_conn=jai_conn)
+                except Exception as r_err:
+                    logger.warning(f"Could not compute COGS reversal for return #{r_id}: {r_err}")
+
+                raw_hash = f"jai_ret_{r_id}_{r_amt}_{ret.get('bill_id')}_{r_date_str}_{ret_cogs_amt}"
                 r_hash = hashlib.sha256(raw_hash.encode()).hexdigest()
 
                 acc_cur.execute(
@@ -577,8 +592,8 @@ def _sync_sales_returns(jai_conn, stat):
                         except Exception as rev_err:
                             logger.warning(f"Reversal note on return #{r_id}: {rev_err}")
 
-                # Post via AccountingRules
-                res = AccountingRules.post_sales_return(ret, conn=acc_conn)
+                # Post via AccountingRules (restoring inventory and reversing COGS)
+                res = AccountingRules.post_sales_return(ret, inventory_cost=ret_cogs_amt, conn=acc_conn)
                 if not res:
                     stat["skipped"] += 1
                     continue
@@ -957,18 +972,14 @@ def _sync_supplier_payments(jai_conn, stat):
 
 def get_live_inventory_valuation():
     """
-    Calculates live stock valuation from Jai Agency storage table (sum of qty * cost).
+    Calculates live stock valuation from Jai Agency storage table.
+    Reflects true remaining inventory valuation based on FIFO unconsumed batches.
     """
     inv_conn = get_jai_agency_db_connection()
     if not inv_conn:
         return 0.0
     try:
-        cur = inv_conn.cursor()
-        cur.execute("SELECT COALESCE(SUM(qty * cost), 0) AS total FROM storage WHERE qty > 0;")
-        row = cur.fetchone()
-        if not row:
-            return 0.0
-        val = row["total"] if isinstance(row, dict) else (row[0] if row else 0.0)
+        val = InventoryCostingEngine.get_live_closing_valuation(jai_conn=inv_conn)
         return round(float(val or 0.0), 2)
     except Exception as e:
         logger.error(f"Error computing Jai Agency live inventory valuation: {e}")

@@ -1,8 +1,18 @@
 import os
+import sys
 import secrets
 from dotenv import load_dotenv
 
-load_dotenv()
+if getattr(sys, 'frozen', False):
+    APP_DIR = os.path.dirname(sys.executable)
+else:
+    APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+env_path = os.path.join(APP_DIR, ".env")
+if os.path.exists(env_path):
+    load_dotenv(env_path)
+else:
+    load_dotenv()
 
 
 class Config:

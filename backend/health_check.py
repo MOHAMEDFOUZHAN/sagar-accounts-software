@@ -274,7 +274,7 @@ class HealthCheckEngine:
             FROM journal_lines jl
             JOIN accounts_chart ac ON jl.account_id = ac.id
             JOIN journal_entries je ON jl.entry_id = je.id
-            WHERE ac.code = '1040' AND je.status = 'POSTED';
+            WHERE ac.code = '1040' AND je.status IN ('POSTED', 'REVERSED');
         """)
         gl_ar = round(float(cur.fetchone()["gl_ar"]), 2)
 
@@ -318,7 +318,7 @@ class HealthCheckEngine:
             FROM journal_lines jl
             JOIN accounts_chart ac ON jl.account_id = ac.id
             JOIN journal_entries je ON jl.entry_id = je.id
-            WHERE ac.code = '2010' AND je.status = 'POSTED';
+            WHERE ac.code = '2010' AND je.status IN ('POSTED', 'REVERSED');
         """)
         gl_ap = round(float(cur.fetchone()["gl_ap"]), 2)
 
@@ -367,7 +367,7 @@ class HealthCheckEngine:
             FROM journal_lines jl
             JOIN accounts_chart ac ON jl.account_id = ac.id
             JOIN journal_entries je ON jl.entry_id = je.id
-            WHERE ac.code = '1050' AND je.status = 'POSTED';
+            WHERE ac.code = '1050' AND je.status IN ('POSTED', 'REVERSED');
         """)
         gl_inv = round(float(cur.fetchone()["gl_inv"]), 2)
 
@@ -415,7 +415,7 @@ class HealthCheckEngine:
             FROM journal_lines jl
             JOIN accounts_chart ac ON jl.account_id = ac.id
             JOIN journal_entries je ON jl.entry_id = je.id
-            WHERE ac.code IN ('2110', '2120') AND je.status = 'POSTED';
+            WHERE ac.code IN ('2110', '2120') AND je.status IN ('POSTED', 'REVERSED');
         """)
         gl_loan = round(float(cur.fetchone()["gl_loan"]), 2)
 
@@ -462,7 +462,7 @@ class HealthCheckEngine:
             FROM journal_lines jl
             JOIN accounts_chart ac ON jl.account_id = ac.id
             JOIN journal_entries je ON jl.entry_id = je.id
-            WHERE ac.code IN ('1110', '1120', '1130', '1140', '1150') AND je.status = 'POSTED';
+            WHERE ac.code IN ('1110', '1120', '1130', '1140', '1150') AND je.status IN ('POSTED', 'REVERSED');
         """)
         gl_cost = round(float(cur.fetchone()["gl_cost"]), 2)
 
@@ -471,7 +471,7 @@ class HealthCheckEngine:
             FROM journal_lines jl
             JOIN accounts_chart ac ON jl.account_id = ac.id
             JOIN journal_entries je ON jl.entry_id = je.id
-            WHERE ac.code = '1160' AND je.status = 'POSTED';
+            WHERE ac.code = '1160' AND je.status IN ('POSTED', 'REVERSED');
         """)
         gl_depr = round(float(cur.fetchone()["gl_depr"]), 2)
 
@@ -521,7 +521,7 @@ class HealthCheckEngine:
                 FROM journal_lines jl
                 JOIN accounts_chart ac ON jl.account_id = ac.id
                 JOIN journal_entries je ON jl.entry_id = je.id
-                WHERE ac.code = '2030' AND je.status = 'POSTED';
+                WHERE ac.code = '2030' AND je.status IN ('POSTED', 'REVERSED');
             """)
             gl_out = round(float(cur.fetchone()["gl_out"]), 2)
 
@@ -530,7 +530,7 @@ class HealthCheckEngine:
                 FROM journal_lines jl
                 JOIN accounts_chart ac ON jl.account_id = ac.id
                 JOIN journal_entries je ON jl.entry_id = je.id
-                WHERE ac.code IN ('1060', '2040') AND je.status = 'POSTED';
+                WHERE ac.code IN ('1060', '2040') AND je.status IN ('POSTED', 'REVERSED');
             """)
             gl_in = round(float(cur.fetchone()["gl_in"]), 2)
 
@@ -576,7 +576,7 @@ class HealthCheckEngine:
             FROM journal_lines jl
             JOIN accounts_chart ac ON jl.account_id = ac.id
             JOIN journal_entries je ON jl.entry_id = je.id
-            WHERE ac.code = '2050' AND je.status = 'POSTED';
+            WHERE ac.code = '2050' AND je.status IN ('POSTED', 'REVERSED');
         """)
         gl_tds = round(float(cur.fetchone()["gl_tds"]), 2)
 
@@ -1061,7 +1061,7 @@ class HealthCheckEngine:
             FROM journal_lines jl
             JOIN accounts_chart ac ON jl.account_id = ac.id
             JOIN journal_entries je ON jl.entry_id = je.id
-            WHERE ac.code = '1010' AND je.status = 'POSTED';
+            WHERE ac.code = '1010' AND je.status IN ('POSTED', 'REVERSED');
         """)
         cash_bal = round(float(cur.fetchone()["cash_bal"]), 2)
 

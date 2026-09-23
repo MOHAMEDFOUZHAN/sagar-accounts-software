@@ -311,13 +311,17 @@ class DoubleEntryEngine:
                 conn.close()
 
     @classmethod
-    def reverse_journal(cls, entry_id, reason, user="system", reversal_date=None, external_conn=None):
+    def reverse_journal(cls, entry_id, reason, user="system", reversal_date=None, is_correction=False, external_conn=None):
         """
-        Formal accounting reversal:
+        Formal accounting reversal with 4-tier date architecture:
+        - Case A (Same Open Period): If is_correction and period is OPEN, uses original accounting date.
+        - Case B (Open Prior Period): Uses original accounting date if period is OPEN.
+        - Case C (Closed Prior Period): Enforces closed period gates.
+        - Case D (Normal Business Reversal): Defaults to current date/time.
         1. Ensures original journal exists and is POSTED.
         2. Prevents double reversal.
         3. Creates a new mirror journal entry with debits & credits swapped.
-        4. Validates reversal_date against accounting periods (must be OPEN).
+        4. Validates effective date against accounting periods.
         5. Links reversal_of_entry_id to the original journal.
         6. Marks original journal status as REVERSED.
         7. Preserves complete audit trail.
@@ -376,8 +380,24 @@ class DoubleEntryEngine:
                     "source_info": f"Reversal line for entry #{original['entry_number']}"
                 })
 
+            # Determine effective accounting date using 4-tier architecture
+            orig_period = PeriodControlEngine.find_period_for_date(original["entry_date"], conn=conn)
+            is_orig_open = False
+            if orig_period:
+                p_status = str(orig_period.get("status") or "OPEN").upper()
+                fy_status = str(orig_period.get("fy_status") or "OPEN").upper()
+                is_orig_open = (p_status == "OPEN" and fy_status == "OPEN")
+
+            if reversal_date:
+                effective_date = reversal_date
+            elif is_correction and is_orig_open:
+                # Case A & B: Same-period or open prior-period correction matches original accounting date
+                effective_date = original["entry_date"]
+            else:
+                # Case D or closed period default: current timestamp
+                effective_date = datetime.datetime.now()
+
             reversal_entry_number = f"REV-{original['entry_number']}"
-            effective_date = reversal_date if reversal_date else datetime.datetime.now()
             narration = f"REVERSAL of #{original['entry_number']}: {reason}"
 
             reversal_result = cls.post_journal_entry(
@@ -386,7 +406,7 @@ class DoubleEntryEngine:
                     "entry_date": effective_date,
                     "source_module": original["source_module"],
                     "source_entity": original["source_entity"],
-                    "source_id": f"rev_{original['source_id']}" if original["source_id"] else None,
+                    "source_id": f"rev_je_{original['id']}",
                     "reference_no": f"REV-{original['reference_no']}" if original["reference_no"] else None,
                     "narration": narration,
                     "status": "POSTED",
@@ -420,12 +440,12 @@ class DoubleEntryEngine:
                 entity_type="journal_entry",
                 entity_id=entry_id,
                 old_state={"status": "POSTED", "entry_number": original["entry_number"]},
-                new_state={"status": "REVERSED", "reversal_entry_id": rev_id, "reversal_entry_number": reversal_entry_number},
+                new_state={"status": "REVERSED", "reversal_entry_id": rev_id, "reversal_entry_number": reversal_entry_number, "effective_date": str(effective_date)},
                 reason=reason
             )
 
             conn.commit()
-            logger.info(f"Reversed Journal #{original['entry_number']} via Reversal #{reversal_entry_number} (ID: {rev_id})")
+            logger.info(f"Reversed Journal #{original['entry_number']} via Reversal #{reversal_entry_number} (ID: {rev_id}) [Date: {effective_date}]")
 
             return {
                 "original_entry_id": entry_id,
@@ -461,22 +481,31 @@ class DoubleEntryEngine:
             should_close = True
         cur = conn.cursor(dictionary=True)
         try:
-            # Step 1: Execute reversal
+            # Step 1: Execute reversal with is_correction=True
             rev_res = cls.reverse_journal(
                 entry_id=entry_id,
                 reason=f"Correction replacement: {reason}",
                 user=user,
                 reversal_date=reversal_date,
+                is_correction=True,
                 external_conn=conn
             )
             reversal_entry_id = rev_res["reversal_entry_id"]
 
             # Step 2: Prepare and post corrected transaction
-            cur.execute("SELECT entry_number FROM journal_entries WHERE id = %s;", (entry_id,))
+            cur.execute("SELECT entry_number, entry_date FROM journal_entries WHERE id = %s;", (entry_id,))
             orig_row = cur.fetchone()
             orig_num = orig_row["entry_number"] if orig_row else str(entry_id)
 
             c_data = dict(corrected_entry_data)
+            if not c_data.get("entry_date"):
+                # Default corrected entry date to original entry date if original period is OPEN
+                orig_period = PeriodControlEngine.find_period_for_date(orig_row["entry_date"], conn=conn) if orig_row else None
+                if orig_period and orig_period.get("status") == "OPEN" and orig_period.get("fy_status") == "OPEN":
+                    c_data["entry_date"] = orig_row["entry_date"]
+                else:
+                    c_data["entry_date"] = datetime.datetime.now()
+
             if not c_data.get("reference_no"):
                 c_data["reference_no"] = f"CORR-{orig_num}"
             if not c_data.get("narration"):
@@ -521,6 +550,151 @@ class DoubleEntryEngine:
         except Exception as e:
             conn.rollback()
             logger.error(f"Correction failed for entry ID {entry_id}: {e}")
+            raise
+        finally:
+            cur.close()
+            if should_close:
+                conn.close()
+
+    @classmethod
+    def create_prior_period_adjustment(cls, entry_id, reason="Prior-Period Audit Adjustment", user="admin", external_conn=None):
+        """
+        Case C: Controlled Prior-Period Adjustment for Closed or Locked Accounting Periods / FYs.
+        When an entry in a CLOSED or LOCKED period must be rectified:
+        1. Verifies that the historical entry exists and belongs to a CLOSED/LOCKED period.
+        2. Preserves the historical original entry without altering closed period history.
+        3. Creates a current-period adjustment journal entry (effective today).
+        4. Re-routes nominal accounts (Revenue, Expense, COGS) to Account 3050 (Prior Period Adjustments).
+        5. Adjusts real balance-sheet control accounts (Payables, Receivables, Bank, Tax) without distorting current operating P&L.
+        6. Links reversal_of_entry_id and logs complete audit trail.
+        """
+        reason = str(reason or "Prior-Period Audit Adjustment").strip()
+        should_close = False
+        conn = external_conn
+        if conn is None:
+            conn = get_db_connection()
+            should_close = True
+        cur = conn.cursor(dictionary=True)
+        try:
+            # 1. Fetch original entry
+            cur.execute("""
+                SELECT id, entry_number, entry_date, source_module, source_entity, source_id,
+                       reference_no, narration, status
+                FROM journal_entries WHERE id = %s;
+            """, (entry_id,))
+            original = cur.fetchone()
+            if not original:
+                raise DoubleEntryError(f"Journal entry ID '{entry_id}' not found.")
+
+            if original["status"] == "REVERSED":
+                raise DoubleEntryError(f"Journal #{original['entry_number']} is already REVERSED.")
+
+            # 2. Verify period is actually CLOSED or LOCKED
+            orig_period = PeriodControlEngine.find_period_for_date(original["entry_date"], conn=conn)
+            if orig_period:
+                p_status = str(orig_period.get("status") or "OPEN").upper()
+                fy_status = str(orig_period.get("fy_status") or "OPEN").upper()
+                if p_status == "OPEN" and fy_status == "OPEN":
+                    logger.info(f"Original period for #{original['entry_number']} is OPEN. Standard reversal/correction should be used.")
+
+            # 3. Locate Account 3050 (Prior Period Adjustments)
+            cur.execute("SELECT id, code, name FROM accounts_chart WHERE code = '3050';")
+            ppa_acc = cur.fetchone()
+            if not ppa_acc:
+                raise DoubleEntryError("Account 3050 (Prior Period Adjustments) is required for prior-period adjustments.")
+            ppa_account_id = ppa_acc["id"]
+
+            # 4. Fetch lines and prepare adjusted lines
+            cur.execute("""
+                SELECT jl.account_id, jl.debit, jl.credit, jl.description, jl.party_type,
+                       jl.party_id, jl.party_name, jl.tax_code, jl.tax_rate,
+                       ac.code as acct_code, ac.major_type
+                FROM journal_lines jl
+                JOIN accounts_chart ac ON jl.account_id = ac.id
+                WHERE jl.entry_id = %s;
+            """, (entry_id,))
+            orig_lines = cur.fetchall()
+
+            adj_lines = []
+            for l in orig_lines:
+                # Nominal accounts are re-routed to Account 3050 (Prior Period Adjustments)
+                if l["major_type"] in ("Revenue", "Direct Expense", "Operating Expense", "Financial Cost"):
+                    target_account_id = ppa_account_id
+                    desc = f"Prior-period adjustment of {l['acct_code']}: {l['description'] or ''}".strip()
+                else:
+                    # Real / Balance Sheet accounts (Asset, Liability, Equity, Tax) remain on their balance sheet accounts
+                    target_account_id = l["account_id"]
+                    desc = f"Prior-period offset of {l['acct_code']}: {l['description'] or ''}".strip()
+
+                adj_lines.append({
+                    "account_id": target_account_id,
+                    "debit": l["credit"],   # Swapped
+                    "credit": l["debit"],   # Swapped
+                    "description": desc,
+                    "party_type": l["party_type"],
+                    "party_id": l["party_id"],
+                    "party_name": l["party_name"],
+                    "tax_code": l["tax_code"],
+                    "tax_rate": l["tax_rate"],
+                    "source_info": f"PPA line for closed-period entry #{original['entry_number']}"
+                })
+
+            adj_number = f"PPA-{original['entry_number']}"
+            effective_date = datetime.datetime.now()
+
+            adj_result = cls.post_journal_entry(
+                entry_data={
+                    "entry_number": adj_number,
+                    "entry_date": effective_date,
+                    "source_module": original["source_module"],
+                    "source_entity": original["source_entity"],
+                    "source_id": f"ppa_je_{original['id']}",
+                    "reference_no": f"PPA-{original['reference_no']}" if original["reference_no"] else None,
+                    "narration": f"PRIOR-PERIOD ADJUSTMENT for closed-period #{original['entry_number']}: {reason}",
+                    "status": "POSTED",
+                },
+                lines_data=adj_lines,
+                user=user,
+                external_conn=conn
+            )
+
+            adj_id = adj_result["entry_id"]
+
+            # Mark original as REVERSED and link
+            cur.execute("""
+                UPDATE journal_entries
+                SET status = 'REVERSED', reversal_reason = %s
+                WHERE id = %s;
+            """, (f"Prior-period adjusted via #{adj_number}: {reason}", entry_id))
+
+            cur.execute("""
+                UPDATE journal_entries
+                SET reversal_of_entry_id = %s, reversal_reason = %s
+                WHERE id = %s;
+            """, (entry_id, reason, adj_id))
+
+            PeriodControlEngine.record_audit_log(
+                cur=cur,
+                user=user,
+                action="PRIOR_PERIOD_ADJUSTMENT",
+                entity_type="journal_entry",
+                entity_id=entry_id,
+                old_state={"status": "POSTED", "entry_number": original["entry_number"]},
+                new_state={"status": "REVERSED", "adjustment_id": adj_id, "adjustment_number": adj_number},
+                reason=reason
+            )
+
+            conn.commit()
+            return {
+                "status": "success",
+                "original_entry_id": entry_id,
+                "adjustment_entry_id": adj_id,
+                "adjustment_number": adj_number,
+                "message": f"Successfully created Prior-Period Adjustment #{adj_number} for #{original['entry_number']}."
+            }
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Prior-period adjustment failed for entry ID {entry_id}: {e}")
             raise
         finally:
             cur.close()

@@ -649,7 +649,7 @@ def generate_balance_sheet(as_of_date=None, start_date=None, financial_year_id=N
                     equity_items.append(item)
                     total_equity = round(total_equity + net_val, 2)
 
-        # Prior Periods' unclosed results flow into Retained Earnings (Account 3020)
+        # Prior Periods' unclosed results flow into Retained Earnings (Account 3030)
         if pnl_start:
             try:
                 pnl_start_dt = datetime.datetime.strptime(pnl_start, "%Y-%m-%d").date()
@@ -661,14 +661,14 @@ def generate_balance_sheet(as_of_date=None, start_date=None, financial_year_id=N
                 prior_net_profit = 0.0
 
             if prior_net_profit != 0.0:
-                re_item = next((item for item in equity_items if item["code"] == "3020"), None)
+                re_item = next((item for item in equity_items if item["code"] == "3030"), None)
                 if re_item:
                     re_item["amount"] = round(re_item["amount"] + prior_net_profit, 2)
                     re_item["credit"] = re_item["amount"]
                 else:
                     equity_items.append({
                         "account_id": None,
-                        "code": "3020",
+                        "code": "3030",
                         "name": "Retained Earnings (Prior Periods)",
                         "sub_type": "Retained Earnings",
                         "debit": 0.0,
@@ -683,7 +683,7 @@ def generate_balance_sheet(as_of_date=None, start_date=None, financial_year_id=N
 
         equity_items.append({
             "account_id": None,
-            "code": "3030",
+            "code": "3040",
             "name": "Current Period Net Profit (P&L)",
             "sub_type": "Current Results",
             "debit": 0.0,
@@ -910,6 +910,11 @@ def generate_tax_report(start_date=None, end_date=None, financial_year_id=None, 
 
         total_tax_liability = round(max(0.0, net_gst) + max(0.0, net_tds_payable), 2)
 
+        is_credit_carryforward = net_gst < 0
+        gst_credit_carryforward = abs(net_gst) if is_credit_carryforward else 0.0
+        display_label = "GST Credit Carryforward" if is_credit_carryforward else "Net GST Payable"
+        display_amount = abs(net_gst)
+
         return {
             "period": {
                 "start_date": s_date or "All Time",
@@ -920,6 +925,10 @@ def generate_tax_report(start_date=None, end_date=None, financial_year_id=None, 
                 "total_output_gst": total_output,
                 "total_input_gst": total_input,
                 "net_gst_payable": net_gst,
+                "gst_credit_carryforward": gst_credit_carryforward,
+                "is_credit_carryforward": is_credit_carryforward,
+                "display_label": display_label,
+                "display_amount": display_amount,
                 "cgst_payable": cgst_payable,
                 "sgst_payable": sgst_payable,
                 "igst_payable": 0.0,

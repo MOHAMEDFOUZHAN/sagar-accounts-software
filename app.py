@@ -69,10 +69,17 @@ from backend.health_check import HealthCheckEngine
 from backend.validation_engine import AccountingValidator, AccountingValidationError
 from backend.business_accounting import BusinessAccountingService
 
+def get_resource_path(relative_path):
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
+
+frontend_folder = get_resource_path('frontend')
+
 app = Flask(
     __name__,
-    template_folder='frontend',
-    static_folder='frontend'
+    template_folder=frontend_folder,
+    static_folder=frontend_folder
 )
 app.secret_key = Config.SECRET_KEY
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -94,7 +101,7 @@ def login_required(f):
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
-    return send_from_directory('frontend', filename)
+    return send_from_directory(get_resource_path('frontend'), filename)
 
 
 # ----------------------------------------------------
@@ -1884,6 +1891,28 @@ def api_system_integrity():
 
 
 if __name__ == '__main__':
+    # 1. Initialize database schema automatically if not exists
+    try:
+        from init_db import init_database
+        init_database()
+    except Exception as e:
+        logger.warning(f"Database initialization check note: {e}")
+
+    # 2. Automatically open browser
+    def _open_browser():
+        import time
+        import webbrowser
+        time.sleep(1.2)
+        webbrowser.open(f"http://127.0.0.1:{Config.PORT}")
+
+    import threading
+    threading.Thread(target=_open_browser, daemon=True).start()
+
     port = Config.PORT
-    print(f"[*] Starting Accounts Software on port {port}...")
-    app.run(host='0.0.0.0', port=port, debug=Config.DEBUG)
+    print("=" * 65)
+    print("      SAGAR ACCOUNTS SOFTWARE - UNIFIED FINANCIAL ENGINE")
+    print("=" * 65)
+    print(f"[*] Server starting on port {port}...")
+    print(f"[*] Dashboard URL: http://127.0.0.1:{port}")
+    print("=" * 65)
+    app.run(host='0.0.0.0', port=port, debug=False)

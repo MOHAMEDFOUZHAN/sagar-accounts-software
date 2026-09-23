@@ -92,7 +92,7 @@ class AccountingRules:
     # 1. SALES ACCOUNTING
     # -------------------------------------------------------------------------
     @classmethod
-    def post_sales_bill(cls, bill, conn=None):
+    def post_sales_bill(cls, bill, cogs_amount=0.0, conn=None):
         """
         Posts double-entry journal for a finalized sales bill from JAI Agency sales_log.
         Credit Sale:
@@ -104,6 +104,10 @@ class AccountingRules:
           Dr Liquid Account (full total)
           Cr Sales Revenue (base amount)
           Cr Output GST Payable (tax components)
+
+        COGS & Inventory Movement:
+          Dr Cost of Goods Sold (5010) [Actual cost of units sold]
+          Cr Inventory Stock (1050) [Actual cost of units sold]
         """
         b_id = str(bill["id"])
         b_total = round(float(bill.get("total") or 0.0), 2)
@@ -134,7 +138,7 @@ class AccountingRules:
 
         lines = []
 
-        # Debits
+        # Debits (Revenue Side)
         is_credit = (b_mode == "CREDIT" or balance > 0)
         if is_credit:
             paid_part = amount_paid if amount_paid > 0 else (b_total - balance if balance < b_total else 0.0)
@@ -177,7 +181,7 @@ class AccountingRules:
                 "party_name": cust_name,
             })
 
-        # Credits
+        # Credits (Revenue Side)
         if tax_amount > 0 and tax_amount < b_total:
             lines.append({
                 "account_id": sales_rev_acc["id"],
@@ -206,6 +210,28 @@ class AccountingRules:
                 "party_name": cust_name,
             })
 
+        # COGS & Inventory Movement (Dual-Posting)
+        cogs_amt = round(float(cogs_amount or bill.get("cogs_amount") or 0.0), 2)
+        if cogs_amt > 0:
+            cogs_acc = cls.get_mapped_account("cogs", default_code="5010", conn=conn)
+            inv_acc = cls.get_mapped_account("inventory_raw", default_code="1050", conn=conn)
+            lines.append({
+                "account_id": cogs_acc["id"],
+                "debit": cogs_amt,
+                "credit": 0.0,
+                "description": f"Cost of Goods Sold for Sale #{b_id}",
+                "party_type": "customer",
+                "party_name": cust_name,
+            })
+            lines.append({
+                "account_id": inv_acc["id"],
+                "debit": 0.0,
+                "credit": cogs_amt,
+                "description": f"Inventory stock relief for Sale #{b_id}",
+                "party_type": "customer",
+                "party_name": cust_name,
+            })
+
         entry_number = f"JV-SLS-{b_id.zfill(6)}"
         narration = f"Jai Agency Sale #{b_id} ({cust_name}) via {b_mode} [{b_status}]"
 
@@ -229,11 +255,15 @@ class AccountingRules:
     # 2. SALES RETURNS
     # -------------------------------------------------------------------------
     @classmethod
-    def post_sales_return(cls, ret, conn=None):
+    def post_sales_return(cls, ret, inventory_cost=0.0, conn=None):
         """
         Sales return:
-          Dr Sales Returns (or Revenue adjustment)
-          Cr Cash / Bank / Customer AR
+          Revenue/Refund reversal:
+            Dr Sales Returns (4015)
+            Cr Cash / Bank / Customer AR
+          Inventory & COGS Restoration:
+            Dr Inventory Stock (1050) [restored stock at cost]
+            Cr Cost of Goods Sold (5010) [COGS reversal]
         """
         r_id = str(ret["id"])
         refund_amount = round(float(ret.get("refund_amount") or 0.0), 2)
@@ -258,6 +288,24 @@ class AccountingRules:
                 "description": f"Cash refund for Return #{r_id}",
             }
         ]
+
+        # Inventory restoration & COGS reversal
+        inv_cost = round(float(inventory_cost or ret.get("inventory_cost") or 0.0), 2)
+        if inv_cost > 0:
+            inv_acc = cls.get_mapped_account("inventory_raw", default_code="1050", conn=conn)
+            cogs_acc = cls.get_mapped_account("cogs", default_code="5010", conn=conn)
+            lines.append({
+                "account_id": inv_acc["id"],
+                "debit": inv_cost,
+                "credit": 0.0,
+                "description": f"Inventory restoration for Return #{r_id}: {p_name}",
+            })
+            lines.append({
+                "account_id": cogs_acc["id"],
+                "debit": 0.0,
+                "credit": inv_cost,
+                "description": f"COGS reversal for Return #{r_id}: {p_name}",
+            })
 
         entry_number = f"JV-RTN-{r_id.zfill(6)}"
         narration = f"Jai Agency Sales Return #{r_id} for Bill #{ret.get('bill_id')} - {p_name}"
@@ -285,9 +333,10 @@ class AccountingRules:
     def post_inventory_purchase(cls, item, conn=None):
         """
         Inward inventory purchase invoice:
-          Dr Direct Purchases / COGS / Raw Materials (cost amount)
-          Dr GST Input Credit (tax amount, if any)
-          Cr Accounts Payable / Supplier (if credit/pending) OR Liquid Account (if paid)
+          Dr Inventory Stock (1050) [cost amount]
+          Dr GST Input Credit (2040) [tax amount, if any]
+          Cr Accounts Payable (2010) (if credit/pending) OR Liquid Account (if paid)
+        Purchasing goods increases Inventory Stock asset. COGS is recognized only upon sale.
         """
         import hashlib
         inv_no = str(item.get("invoice_no") or "").strip()
@@ -310,19 +359,19 @@ class AccountingRules:
         p_mode = str(item.get("payment_mode") or "BANK").upper()
         supp_name = str(item.get("supplier_name") or f"Supplier (Inv #{inv_no})").strip()
 
-        # Account mappings
-        cogs_acc = cls.get_mapped_account("cogs", default_code="5010", conn=conn)
+        # Account mappings: Debit Inventory Stock (1050), NOT COGS (5010)!
+        inv_acc = cls.get_mapped_account("inventory_raw", default_code="1050", conn=conn)
         gst_in_acc = cls.get_mapped_account("input_gst", default_code="2040", conn=conn)
         ap_acc = cls.get_mapped_account("accounts_payable", default_code="2010", conn=conn)
         liquid_acc = cls.resolve_liquid_account(p_mode, conn=conn)
 
         lines = []
-        # Debits:
+        # Debits: Inventory Capitalization
         lines.append({
-            "account_id": cogs_acc["id"],
+            "account_id": inv_acc["id"],
             "debit": cost_amt,
             "credit": 0.0,
-            "description": f"Purchase Inward for Inv #{inv_no}",
+            "description": f"Inventory Inward Purchase for Inv #{inv_no}",
             "party_type": "supplier",
             "party_name": supp_name,
         })
@@ -1138,7 +1187,7 @@ class AccountingRules:
             raise ValueError("Debit note amount must be greater than zero.")
 
         ap_acc = cls.get_mapped_account("accounts_payable", default_code="2010", conn=conn)
-        cogs_acc = cls.get_mapped_account("cogs", default_code="5010", conn=conn)
+        inv_acc = cls.get_mapped_account("inventory_raw", default_code="1050", conn=conn)
         gst_in_acc = cls.get_mapped_account("input_gst", default_code="2040", conn=conn)
 
         lines = [
@@ -1151,10 +1200,10 @@ class AccountingRules:
                 "party_name": supp_name
             },
             {
-                "account_id": cogs_acc["id"],
+                "account_id": inv_acc["id"],
                 "debit": 0.0,
                 "credit": base_amount,
-                "description": f"Debit Note: {reason}",
+                "description": f"Inventory return reduction: {reason}",
                 "party_type": "supplier",
                 "party_name": supp_name
             }

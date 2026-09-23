@@ -544,7 +544,72 @@ class ReconciliationEngine:
             }
         finally:
             cur.close()
-            if should_close:
+    @classmethod
+    def reconcile_inventory_cogs(cls, as_of_date=None, conn=None):
+        """
+        Comprehensive Product-Level Inventory & COGS Reconciliation.
+        Verifies:
+          1. Product-by-product movements: Opening + Inwards - Sales + Returns = Closing
+          2. Inventory Formula: Opening Inventory + Net Purchases - Closing Inventory = COGS
+          3. GL Inventory Account (1050) == Closing Inventory Valuation
+          4. GL COGS Account (5010) == Actual Recognized COGS
+          5. Negative inventory detection and diagnostics.
+        """
+        from backend.inventory_engine import InventoryCostingEngine
+
+        should_close = False
+        if conn is None:
+            conn = get_db_connection()
+            should_close = True
+
+        try:
+            d_str = str(as_of_date or datetime.date.today().isoformat()).split("T")[0].split(" ")[0].strip()
+            inv_data = InventoryCostingEngine.get_inventory_and_cogs_breakdown()
+
+            # Fetch GL balances
+            raw_acc = ChartOfAccountsEngine.get_account_by_code("1050", conn=conn)
+            cogs_acc = ChartOfAccountsEngine.get_account_by_code("5010", conn=conn)
+
+            gl_inventory = float(LedgerEngine.get_account_balance(raw_acc["id"], as_of_date=d_str, conn=conn)["balance"]) if raw_acc else 0.0
+            gl_cogs = float(LedgerEngine.get_account_balance(cogs_acc["id"], as_of_date=d_str, conn=conn)["balance"]) if cogs_acc else 0.0
+
+            actual_closing_val = inv_data["totals"]["closing_inventory"]
+            actual_cogs = inv_data["totals"]["actual_cogs"]
+            total_purchases = inv_data["totals"]["purchases"]
+
+            inv_diff = round(gl_inventory - actual_closing_val, 2)
+            cogs_diff = round(gl_cogs - actual_cogs, 2)
+
+            formula_matched = inv_data["totals"]["is_reconciled"]
+            gl_matched = (abs(inv_diff) < 0.05 and abs(cogs_diff) < 0.05)
+
+            return {
+                "as_of_date": d_str,
+                "costing_method": InventoryCostingEngine.COSTING_METHOD,
+                "products": inv_data["products"],
+                "negative_stock_warnings": inv_data["negative_stock_warnings"],
+                "formula_reconciliation": {
+                    "opening_inventory": inv_data["totals"]["opening_value"],
+                    "net_purchases": total_purchases,
+                    "actual_cogs": actual_cogs,
+                    "closing_inventory": actual_closing_val,
+                    "formula_check": f"{inv_data['totals']['opening_value']:.2f} + {total_purchases:.2f} - {actual_closing_val:.2f} = {actual_cogs:.2f}",
+                    "is_formula_balanced": formula_matched,
+                    "difference": inv_data["totals"]["difference"]
+                },
+                "gl_reconciliation": {
+                    "gl_inventory_1050": gl_inventory,
+                    "inventory_valuation": actual_closing_val,
+                    "inventory_difference": inv_diff,
+                    "gl_cogs_5010": gl_cogs,
+                    "actual_cogs": actual_cogs,
+                    "cogs_difference": cogs_diff,
+                    "is_gl_reconciled": gl_matched
+                },
+                "status": "RECONCILED" if (formula_matched and gl_matched) else "DISCREPANCY"
+            }
+        finally:
+            if should_close and conn:
                 conn.close()
 
     # -------------------------------------------------------------------------

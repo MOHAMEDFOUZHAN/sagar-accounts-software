@@ -11,7 +11,12 @@ from backend.audit_engine import AuditEngine
 
 logger = logging.getLogger(__name__)
 
-BACKUP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+BACKUP_DIR = os.path.join(BASE_DIR, "backups")
 
 
 class BackupEngine:

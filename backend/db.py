@@ -1,4 +1,5 @@
 import os
+import sys
 import sqlite3
 import logging
 import threading
@@ -11,9 +12,12 @@ from config import Config
 
 logger = logging.getLogger(__name__)
 
-DB_FILE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "accounts.db"
-)
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+DB_FILE = os.path.join(BASE_DIR, "accounts.db")
 _db_mode = None
 _mysql_pool = None
 _pool_lock = threading.Lock()

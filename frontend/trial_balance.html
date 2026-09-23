@@ -269,8 +269,16 @@
                     <tbody>
                         {% if tb.lines %}
                             {% for row in tb.lines %}
-                            {% set is_debit_norm = row.major_type in ['Asset', 'Direct Expense', 'Operating Expense', 'Financial Cost'] %}
-                            {% set net_bal = (row.debit - row.credit) if is_debit_norm else (row.credit - row.debit) %}
+                            {% if row.debit > row.credit %}
+                                {% set net_amt = row.debit - row.credit %}
+                                {% set net_dir = 'Dr' %}
+                            {% elif row.credit > row.debit %}
+                                {% set net_amt = row.credit - row.debit %}
+                                {% set net_dir = 'Cr' %}
+                            {% else %}
+                                {% set net_amt = 0.0 %}
+                                {% set net_dir = '' %}
+                            {% endif %}
                             <tr>
                                 <td><span class="table-code">{{ row.code }}</span></td>
                                 <td><strong style="color: #f1f5f9;">{{ row.name }}</strong></td>
@@ -286,10 +294,12 @@
                                     {% if row.credit > 0 %}₹{{ "{:,.2f}".format(row.credit) }}{% else %}—{% endif %}
                                 </td>
                                 <td class="col-currency" style="font-weight: 700; color: #f8fafc;">
-                                    ₹{{ "{:,.2f}".format(net_bal|abs) }}
+                                    ₹{{ "{:,.2f}".format(net_amt) }}
+                                    {% if net_dir %}
                                     <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 400;">
-                                        {% if is_debit_norm %}(Dr){% else %}(Cr){% endif %}
+                                        ({{ net_dir }})
                                     </span>
+                                    {% endif %}
                                 </td>
                                 <td class="col-action">
                                     <button type="button"

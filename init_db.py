@@ -595,7 +595,7 @@ def init_database(force_reseed=False):
         ('1020', 'Bank Account', 'Asset', 'Bank', 'Main commercial business current account', 0, 1, 'Debit', '1200', 'bank_default', None),
         ('1030', 'UPI & Digital Clearing', 'Asset', 'Bank', 'Digital payments pending bank settlement', 0, 1, 'Debit', '1200', 'upi_default', None),
         ('1040', 'Accounts Receivable', 'Asset', 'Accounts Receivable', 'Customer credit balances due from sales', 0, 1, 'Debit', '1200', 'accounts_receivable', None),
-        ('1050', 'Inventory Stock (Raw Materials)', 'Asset', 'Inventory', 'Current valuation of raw materials and ingredients', 0, 1, 'Debit', '1200', 'inventory_raw', None),
+        ('1050', 'Inventory Stock', 'Asset', 'Inventory', 'Current valuation of merchandise for sale', 0, 1, 'Debit', '1200', 'inventory_raw', None),
         ('1060', 'Inventory Stock (Finished Goods)', 'Asset', 'Inventory', 'Current valuation of merchandise for sale', 0, 1, 'Debit', '1200', 'inventory_finished', None),
         ('1070', 'Supplier Advances', 'Asset', 'Advances', 'Advance payments made to vendors', 0, 1, 'Debit', '1200', None, None),
         ('1080', 'Other Current Assets', 'Asset', 'Other Current Assets', 'Sundry short-term current assets', 0, 1, 'Debit', '1200', None, None),
@@ -633,6 +633,7 @@ def init_database(force_reseed=False):
         ('3020', 'Owner Drawings', 'Equity', 'Drawings', 'Funds withdrawn by owner for personal use (Contra-Equity)', 0, 1, 'Debit', '3000', 'owner_drawings', None),
         ('3030', 'Retained Earnings', 'Equity', 'Retained Earnings', 'Accumulated prior years undistributed net profit', 0, 1, 'Credit', '3000', 'retained_earnings', None),
         ('3040', 'Current Year Profit / Loss', 'Equity', 'Profit & Loss', 'Current operating year net surplus/deficit', 0, 1, 'Credit', '3000', 'current_profit', None),
+        ('3050', 'Prior Period Adjustments', 'Equity', 'Prior Period Adjustments', 'Adjustments for correction of errors, omitted items, or tax reclassifications relating to prior financial years', 0, 1, 'Credit', '3000', 'prior_period_adjustments', None),
 
         # --- 4000 INCOME / REVENUE (Group) ---
         ('4000', 'INCOME / REVENUE', 'Revenue', 'Revenue Header', 'Operating and non-operating revenue', 1, 0, 'Credit', None, None, None),
