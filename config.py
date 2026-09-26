@@ -24,7 +24,7 @@ class Config:
     MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
     MYSQL_DB = os.getenv("MYSQL_DB", "accounts_db")
 
-    PORT = int(os.getenv("FLASK_PORT", 5001))
+    PORT = int(os.getenv("FLASK_PORT", 5050))
     DEBUG = os.getenv("FLASK_DEBUG", "false").lower() == "true"
 
     # External Integrated System: Jai Agency (Unified Sales & Inventory)

@@ -25,7 +25,7 @@ def build():
         "-m", "PyInstaller",
         "--noconfirm",
         "--onedir",
-        "--name", "SagarAccounts",
+        "--name", "JaiAgencyAccounts",
         f"--add-data={frontend_dir}{sep}frontend",
         f"--add-data={os.path.join(BASE_DIR, 'config.py')}{sep}.",
         f"--add-data={os.path.join(BASE_DIR, 'init_db.py')}{sep}.",
@@ -71,7 +71,7 @@ def build():
         sys.exit(result.returncode)
 
     # 3. Post-build tasks
-    out_dir = os.path.join(dist_dir, "SagarAccounts")
+    out_dir = os.path.join(dist_dir, "JaiAgencyAccounts")
     print("\n[+] Build successful! Output directory:", out_dir)
 
     # Copy .env if exists
@@ -84,12 +84,12 @@ def build():
     instructions_path = os.path.join(out_dir, "HOW_TO_RUN.txt")
     with open(instructions_path, "w", encoding="utf-8") as f:
         f.write(
-            "SAGAR ACCOUNTS SOFTWARE - STANDALONE RELEASE\n"
-            "============================================\n\n"
+            "JAI AGENCY ACCOUNTS SOFTWARE - STANDALONE RELEASE\n"
+            "=================================================\n\n"
             "1. HOW TO RUN:\n"
-            "   - Double-click 'SagarAccounts.exe'.\n"
+            "   - Double-click 'JaiAgencyAccounts.exe'.\n"
             "   - A console window will appear and your default web browser will automatically open:\n"
-            "     http://127.0.0.1:5001\n\n"
+            "     http://127.0.0.1:5050\n\n"
             "2. DEFAULT LOGIN CREDENTIALS:\n"
             "   - Username: accounts\n"
             "   - Password: 1234\n\n"
@@ -97,8 +97,7 @@ def build():
             "   - Username: accountant\n"
             "   - Password: 1234\n\n"
             "3. INTEGRATION WITH JAI AGENCY:\n"
-            "   - If Jai Agency is installed on this PC, Sagar Accounts will automatically\n"
-            "     read sales bills and inventory batches from C:\\ProgramData\\jai agency\\JAI_AGENCY.db\n"
+            "   - Reads sales bills and inventory batches from C:\\ProgramData\\jai agency\\JAI_AGENCY.db\n"
             "   - The sync is 100% read-only and will never alter or harm Jai Agency data.\n\n"
             "4. BACKUPS & DATA:\n"
             "   - All accounts databases and backups are saved right here in this folder.\n"
@@ -106,7 +105,7 @@ def build():
     print("[+] Created HOW_TO_RUN.txt in dist folder.")
     print("=" * 70)
     print("BUILD COMPLETE! You can find the executable at:")
-    print(os.path.join(out_dir, "SagarAccounts.exe"))
+    print(os.path.join(out_dir, "JaiAgencyAccounts.exe"))
     print("=" * 70)
 
 if __name__ == '__main__':

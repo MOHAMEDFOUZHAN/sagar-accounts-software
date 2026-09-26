@@ -16,8 +16,8 @@ if %errorlevel% neq 0 (
 echo Initializing database schemas (if needed)...
 python init_db.py
 
-echo Starting Accounts Web Service on port 5001...
-start "" http://127.0.0.1:5001
+echo Starting Accounts Web Service on port 5050...
+start "" http://127.0.0.1:5050
 python app.py
 
 pause
